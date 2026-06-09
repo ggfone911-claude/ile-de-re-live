@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Île de Ré Live</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#062c3e;font-family:'DM Sans',system-ui,sans-serif;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+input::placeholder{color:rgba(255,255,255,.35);}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const C = {
+  ocean:"#0b3d52", sky:"#1a7fa0", skyL:"#2aaccf", foam:"#e8f5f9",
+  sun:"#f5a623", sunL:"#ffd166", alert:"#e05c3a",
+  text:"#0d2333", muted:"#5e8a9a", card:"#ffffff", border:"#c8e4ee",
+};
+
+const SURF_LINKS = [
+  { icon:"🌊", name:"Grenettes — Surf Forecast",  sub:"Houle · Période · Vent · 16j",  url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Les-Grenettes/forecasts/latest/six_day" },
+  { icon:"🤙", name:"Petit Bec — Surf Forecast",  sub:"Portes-en-Ré · Haut niveau",    url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Petit-Bec/forecasts/latest/six_day" },
+  { icon:"🌀", name:"MagicSeaweed Île de Ré",      sub:"Surf report complet",            url:"https://www.magicseaweed.com/Ile-De-Re-Surf-Report/6584/" },
+  { icon:"💨", name:"Windfinder Le Bois Plage",    sub:"Superforecast 1h · 3 jours",     url:"https://fr.windfinder.com/forecast/ile_de_re_le_bois_plage_en_re" },
+  { icon:"🌬️", name:"Windguru Diamond Head",       sub:"Kite référence · multi-modèles", url:"https://www.windguru.cz/1589" },
+];
+
+/* ── TIDE CHART ── */
+function TideChart({ points }) {
+  const ref = useRef(null);
+  const [tooltip, setTooltip] = useState("");
+
+  const draw = useCallback(() => {
+    const canvas = ref.current;
+    if (!canvas || !points?.length) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth, H = 210;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    const pad = { t:18, r:14, b:32, l:48 };
+    const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+    const hVals = points.map(p => p.height);
+    const hMax = Math.max(...hVals) + 0.4;
+    const tFirst = new Date(points[0].time).getTime();
+    const tSpan  = new Date(points[points.length-1].time).getTime() - tFirst;
+    const xP = t => pad.l + (new Date(t).getTime()-tFirst)/tSpan * cw;
+    const yP = h => pad.t + ch - (h / hMax) * ch;
+
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,"#eaf6fb"); bg.addColorStop(1,"#f5fbfd");
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(0,0,W,H,10); ctx.fill();
+
+    const step = hMax > 5 ? 1 : 0.5;
+    for (let h = 0; h <= hMax; h += step) {
+      const y = yP(h);
+      ctx.strokeStyle = "rgba(10,60,80,.07)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+      ctx.fillStyle = "rgba(70,110,130,.8)"; ctx.font = "10px system-ui"; ctx.textAlign = "right";
+      ctx.fillText(h.toFixed(h<1?1:0)+"m", pad.l-5, y+4);
+    }
+    for (let hh = 0; hh <= 24; hh += 3) {
+      const x = pad.l + (hh/24)*cw;
+      ctx.strokeStyle = "rgba(10,60,80,.05)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,H-pad.b); ctx.stroke();
+      ctx.fillStyle = "rgba(70,110,130,.75)"; ctx.textAlign = "center";
+      ctx.fillText(String(hh).padStart(2,"0")+"h", x, H-pad.b+16);
+    }
+
+    const fill = ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+    fill.addColorStop(0,"rgba(26,127,160,.42)");
+    fill.addColorStop(0.65,"rgba(26,127,160,.1)");
+    fill.addColorStop(1,"rgba(26,127,160,.01)");
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(xP(points[0].time), H-pad.b);
+    points.forEach(p => ctx.lineTo(xP(p.time), yP(p.height)));
+    ctx.lineTo(xP(points[points.length-1].time), H-pad.b);
+    ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = "#1a7fa0"; ctx.lineWidth = 2.8; ctx.lineJoin = "round";
+    ctx.beginPath();
+    points.forEach((p,i) => i===0 ? ctx.moveTo(xP(p.time),yP(p.height)) : ctx.lineTo(xP(p.time),yP(p.height)));
+    ctx.stroke();
+
+    for (let i=1; i<points.length-1; i++) {
+      const p=points[i],prev=points[i-1],next=points[i+1];
+      const isPM = p.height>prev.height&&p.height>next.height;
+      const isBM = p.height<prev.height&&p.height<next.height;
+      if (!isPM&&!isBM) continue;
+      const x=xP(p.time), y=yP(p.height), color=isPM?"#0b3d52":"#2aaccf";
+      const halo=ctx.createRadialGradient(x,y,2,x,y,14);
+      halo.addColorStop(0,isPM?"rgba(11,61,82,.28)":"rgba(42,172,207,.28)");
+      halo.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle=halo; ctx.beginPath(); ctx.arc(x,y,14,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2); ctx.stroke();
+      const hStr=p.height.toFixed(2)+"m";
+      const tStr=new Date(p.time).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
+      ctx.fillStyle=color; ctx.textAlign="center"; ctx.font="bold 10px system-ui";
+      ctx.fillText(hStr,x,y+(isPM?-13:19));
+      ctx.font="9px system-ui"; ctx.fillStyle="rgba(70,110,130,.8)";
+      ctx.fillText(tStr,x,y+(isPM?-24:29));
+    }
+
+    const nowMs=Date.now();
+    if (nowMs>=tFirst&&nowMs<=tFirst+tSpan) {
+      const frac=(nowMs-tFirst)/tSpan;
+      const hNow=points[Math.min(Math.round(frac*(points.length-1)),points.length-1)]?.height??0;
+      const xNow=pad.l+frac*cw, yNow=yP(hNow);
+      ctx.save();
+      ctx.shadowColor="rgba(224,92,58,.35)"; ctx.shadowBlur=8;
+      ctx.strokeStyle="#e05c3a"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(xNow,pad.t); ctx.lineTo(xNow,H-pad.b); ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur=0;
+      ctx.fillStyle="#e05c3a"; ctx.beginPath(); ctx.arc(xNow,yNow,6,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(xNow,yNow,6,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+  }, [points]);
+
+  useEffect(() => { draw(); }, [draw]);
+  useEffect(() => {
+    const ro = new ResizeObserver(draw);
+    if (ref.current) ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, [draw]);
+
+  const handleInteraction = (e) => {
+    if (!ref.current || !points?.length) return;
+    const rect = ref.current.getBoundingClientRect();
+    const mx = (e.touches?.[0]?.clientX ?? e.clientX) - rect.left;
+    const frac = Math.max(0,Math.min(1,(mx-48)/(rect.width-48-14)));
+    const p = points[Math.round(frac*(points.length-1))];
+    if (!p) return;
+    const t = new Date(p.time).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
+    setTooltip(`${t} → ${p.height.toFixed(2)} m`);
+  };
+
+  return (
+    <div>
+      <canvas ref={ref} style={{width:"100%",height:210,display:"block",borderRadius:10,cursor:"crosshair"}}
+        onMouseMove={handleInteraction} onTouchMove={handleInteraction}
+        onMouseLeave={()=>setTooltip("")} onTouchEnd={()=>setTooltip("")}/>
+      <div style={{textAlign:"center",fontSize:".74rem",marginTop:5,minHeight:18,
+        color:tooltip?C.ocean:C.muted,fontWeight:tooltip?700:400,transition:"color .15s"}}>
+        {tooltip || "Survolez la courbe pour voir la hauteur à chaque heure"}
+      </div>
+    </div>
+  );
+}
+
+/* ── APP ── */
+function App() {
+  const [tab, setTab] = useState("trafic");
+  const [apiKey, setApiKey] = useState(() => { try{return localStorage.getItem("apimaree_key")||"";}catch{return "";} });
+  const [tidePoints, setTidePoints] = useState(null);
+  const [extrema, setExtrema] = useState([]);
+  const [coef, setCoef] = useState(null);
+  const [nowH, setNowH] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [wind, setWind] = useState(null);
+  const [windSpot, setWindSpot] = useState(0);
+  const [windLoad, setWindLoad] = useState(false);
+
+  const WIND_SPOTS = [
+    { name:"Île de Ré", lat:46.18, lon:-1.43 },
+    { name:"La Rochelle", lat:46.16, lon:-1.15 },
+  ];
+  const DIR16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  const degToDir = d => DIR16[Math.round(d/22.5)%16];
+  const toKn = ms => Math.round(ms * 1.94384);
+  const toBft = kn => kn<1?0:kn<4?1:kn<7?2:kn<11?3:kn<17?4:kn<22?5:kn<28?6:kn<34?7:kn<41?8:kn<48?9:kn<56?10:kn<64?11:12;
+
+  const fetchWind = useCallback(async (idx) => {
+    setWindLoad(true); setWind(null);
+    const s = WIND_SPOTS[idx];
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,relative_humidity_2m,pressure_msl&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Europe%2FParis&forecast_days=2&wind_speed_unit=ms`;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (!data.current) throw new Error("Réponse inattendue.");
+      setWind(data);
+    } catch(e) {
+      setWind({ error: e.message });
+    } finally {
+      setWindLoad(false);
+    }
+  }, []);
+
+  useEffect(() => { if (tab==="ventlive") fetchWind(windSpot); }, [tab, windSpot]);
+
+  const computeExtrema = (pts) => {
+    const ex = [];
+    for (let i=1;i<pts.length-1;i++) {
+      const p=pts[i],prev=pts[i-1],next=pts[i+1];
+      if (p.height>prev.height&&p.height>next.height) ex.push({...p,type:"PM"});
+      if (p.height<prev.height&&p.height<next.height) ex.push({...p,type:"BM"});
+    }
+    return ex;
+  };
+
+  const loadTides = useCallback(async (k) => {
+    const key = (k ?? apiKey).trim();
+    if (!key) { setError("Entrez votre clé api-maree.fr."); return; }
+    setLoading(true); setError(""); setTidePoints(null); setExtrema([]); setCoef(null); setNowH(null);
+    const now = new Date();
+    const p2 = n => String(n).padStart(2,"0");
+    const d = `${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
+    const url = `https://api-maree.fr/water-levels?site=ile-de-re-saint-martin&from=${d}T00:00&to=${d}T23:59&step=10&tz=Europe/Paris&key=${encodeURIComponent(key)}`;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(r.status===401||r.status===403?"Clé invalide ou expirée.":`Erreur ${r.status}`);
+      const data = await r.json();
+      if (!data.data?.length) throw new Error("Aucune donnée reçue.");
+      try { localStorage.setItem("apimaree_key", key); } catch {}
+      const pts = data.data;
+      const ex = computeExtrema(pts);
+      setTidePoints(pts); setExtrema(ex);
+      const pm=ex.find(e=>e.type==="PM"), bm=ex.find(e=>e.type==="BM");
+      if (pm&&bm) setCoef(Math.max(20,Math.min(120,Math.round(20+(pm.height-bm.height-0.6)/5*100))));
+      const tFirst=new Date(pts[0].time).getTime(), tLast=new Date(pts[pts.length-1].time).getTime();
+      const nowMs=Date.now();
+      if (nowMs>=tFirst&&nowMs<=tLast) setNowH(pts[Math.round((nowMs-tFirst)/(tLast-tFirst)*(pts.length-1))]?.height);
+    } catch(e) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [apiKey]);
+
+  useEffect(() => { if (apiKey) loadTides(apiKey); }, []);
+
+  const fmtH = iso => new Date(iso).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
+  const today = new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+
+  const TABS = [
+    {id:"trafic",  label:"🚗 Trafic"},
+    {id:"marees",  label:"🌊 Marées"},
+    {id:"ventlive",label:"💨 Vent Live"},
+    {id:"vent",    label:"🏄 Prévisions"},
+  ];
+
+  /* ── VENT LIVE render vars ── */
+  const wc = wind?.current;
+  const kn = wc ? toKn(wc.wind_speed_10m) : null;
+  const gustKn = wc ? toKn(wc.wind_gusts_10m) : null;
+  const bft = kn!=null ? toBft(kn) : null;
+  const dir = wc?.wind_direction_10m;
+  const condLabel = kn==null?"" : kn>=12&&kn<=25?"🪁 Idéal kite / planche" : kn>=6?"🏄 Bon pour le surf" : kn<6?"😴 Vent calme" : "⚠️ Vent fort — prudence";
+  const condColor = kn==null?C.muted : kn>=12&&kn<=25?"#1a7fa0" : kn>=6?"#1e8c6e" : kn<6?C.muted : C.alert;
+  const now = new Date();
+  const nextH = wind?.hourly ? wind.hourly.time.reduce((acc,t,i) => {
+    if (acc.length>=8) return acc;
+    if (new Date(t)>now) acc.push({ t:new Date(t), spKn:toKn(wind.hourly.wind_speed_10m[i]), gKn:toKn(wind.hourly.wind_gusts_10m[i]), dir:wind.hourly.wind_direction_10m[i] });
+    return acc;
+  }, []) : [];
+  const maxSpKn = nextH.length ? Math.max(...nextH.map(h=>h.spKn)) : 1;
+
+  return (
+    <div style={{fontFamily:"'DM Sans',system-ui,sans-serif",background:"linear-gradient(155deg,#062c3e 0%,#0b4a62 45%,#0e607e 100%)",minHeight:"100vh",color:C.text}}>
+
+      {/* HEADER */}
+      <div style={{padding:"18px 18px 0",display:"flex",alignItems:"center",gap:11}}>
+        <span style={{fontSize:"2rem"}}>🏄</span>
+        <div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:"1.3rem",fontWeight:700,color:"#fff",letterSpacing:".5px"}}>
+            Île de Ré <span style={{color:C.sun,fontStyle:"italic"}}>Live</span>
+          </div>
+          <div style={{fontSize:".72rem",color:"rgba(255,255,255,.5)",marginTop:1}}>Surf · Kite · Marées · Vent live</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.1)",borderRadius:20,padding:"4px 11px",color:"#fff",fontSize:".68rem",fontWeight:600,letterSpacing:"1px"}}>
+          <span style={{width:6,height:6,borderRadius:"50%",background:"#4eff9b",display:"inline-block",animation:"blink 1.4s ease-in-out infinite"}}/>
+          LIVE
+        </div>
+      </div>
+
+      {/* TABS */}
+      <div style={{display:"flex",gap:6,padding:"14px 18px 0",overflowX:"auto",scrollbarWidth:"none"}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            fontWeight:700,fontSize:".8rem",whiteSpace:"nowrap",flexShrink:0,
+            padding:"7px 15px",borderRadius:30,border:"none",cursor:"pointer",
+            background:tab===t.id?C.sun:"rgba(255,255,255,.13)",
+            color:tab===t.id?"#0b3d52":"rgba(255,255,255,.8)",
+            boxShadow:tab===t.id?"0 3px 12px rgba(245,166,35,.4)":"none",
+            transition:"all .18s",
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      <div style={{padding:"14px 18px 28px"}}>
+
+        {/* ══ TRAFIC ══ */}
+        {tab==="trafic" && (
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.card,borderRadius:14,overflow:"hidden",boxShadow:"0 4px 18px rgba(0,0,0,.18)"}}>
+              <div style={{background:`linear-gradient(135deg,${C.ocean},${C.sky})`,padding:"11px 15px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontFamily:"Georgia,serif",fontWeight:700,color:"#fff",fontSize:".95rem"}}>🚗 Respi Ré — Trafic live</div>
+                <a href="https://re-info-trafic.fr/" target="_blank" rel="noreferrer" style={{fontSize:".68rem",color:"rgba(255,255,255,.6)",textDecoration:"none"}}>Plein écran →</a>
+              </div>
+              <div style={{position:"relative",paddingBottom:"75%",height:0}}>
+                <iframe src="https://re-info-trafic.fr/" style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} title="Respi Ré"/>
+              </div>
+            </div>
+            <div style={{background:"rgba(245,166,35,.1)",border:"1.5px solid rgba(245,166,35,.28)",borderRadius:11,padding:"11px 14px",fontSize:".78rem",color:"rgba(255,255,255,.82)",lineHeight:1.5}}>
+              💡 <strong>Conseil :</strong> Juillet–août, partir avant 10h ou après 19h. Navette électrique Belvédère → Sablanceaux. Vélo = gratuit sur le pont.
+            </div>
+          </div>
+        )}
+
+        {/* ══ MARÉES ══ */}
+        {tab==="marees" && (
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"rgba(255,255,255,.1)",borderRadius:13,padding:"13px 15px"}}>
+              <div style={{color:"rgba(255,255,255,.85)",fontSize:".78rem",fontWeight:600,marginBottom:7}}>
+                🔑 Clé API — <a href="https://api-maree.fr" target="_blank" rel="noreferrer" style={{color:C.sunL}}>api-maree.fr</a>
+                <span style={{fontWeight:400,color:"rgba(255,255,255,.45)",marginLeft:5}}>(IFREMER CC-BY · gratuit)</span>
+              </div>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                <input value={apiKey} onChange={e=>setApiKey(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&loadTides()}
+                  placeholder="Collez votre clé ici…"
+                  style={{flex:1,minWidth:170,padding:"8px 11px",borderRadius:8,border:"1.5px solid rgba(255,255,255,.25)",background:"rgba(255,255,255,.1)",color:"#fff",fontSize:".82rem",outline:"none"}}
+                />
+                <button onClick={()=>loadTides()} style={{padding:"8px 16px",background:C.sun,color:"#0b3d52",border:"none",borderRadius:8,fontWeight:700,fontSize:".82rem",cursor:"pointer"}}>Charger</button>
+              </div>
+              <div style={{fontSize:".68rem",color:"rgba(255,255,255,.4)",marginTop:5}}>
+                Sur api-maree.fr → Connexion → clé dans le champ <code style={{background:"rgba(255,255,255,.1)",borderRadius:3,padding:"1px 4px"}}>key=</code> de l'exemple d'URL
+              </div>
+            </div>
+            {loading && <div style={{background:"rgba(255,255,255,.08)",borderRadius:13,padding:28,textAlign:"center",color:"rgba(255,255,255,.6)"}}><div style={{fontSize:"1.5rem",marginBottom:6}}>⏳</div>Chargement…</div>}
+            {error && <div style={{background:"rgba(224,92,58,.15)",border:"1.5px solid rgba(224,92,58,.4)",borderRadius:11,padding:"11px 14px",color:"#ffb3a0",fontSize:".82rem"}}>⚠️ {error}</div>}
+            {tidePoints && !loading && (
+              <div style={{background:C.card,borderRadius:15,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,.18)"}}>
+                <div style={{background:"linear-gradient(135deg,#083d57,#0e6a9a)",padding:"12px 17px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                  <div style={{fontFamily:"Georgia,serif",fontWeight:700,color:"#fff",fontSize:"1rem"}}>🌊 Saint-Martin-de-Ré</div>
+                  <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"3px 10px",color:"rgba(255,255,255,.85)",fontSize:".72rem",textTransform:"capitalize"}}>{today}</div>
+                </div>
+                {nowH!=null && (
+                  <div style={{background:"rgba(26,127,160,.05)",borderBottom:"1px solid rgba(26,127,160,.1)",padding:"9px 17px",display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{width:9,height:9,borderRadius:"50%",background:C.alert,display:"inline-block",animation:"blink 1.4s ease-in-out infinite",flexShrink:0}}/>
+                    <span style={{fontSize:".8rem",color:C.muted}}>Hauteur actuelle</span>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:"1.35rem",fontWeight:700,color:C.ocean,marginLeft:"auto"}}>{nowH.toFixed(2)}<span style={{fontSize:".78rem",fontWeight:400}}> m</span></div>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:9,flexWrap:"wrap",padding:"14px 17px 10px"}}>
+                  {extrema.map((e,i)=>(
+                    <div key={i} style={{flex:"1 0 auto",minWidth:85,textAlign:"center",background:e.type==="PM"?"rgba(26,127,160,.07)":C.foam,border:`1.5px solid ${e.type==="PM"?"rgba(26,127,160,.28)":C.border}`,borderRadius:11,padding:"10px 13px"}}>
+                      <div style={{fontSize:"1.1rem"}}>{e.type==="PM"?"↑":"↓"}</div>
+                      <div style={{fontSize:".61rem",color:C.muted,textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,margin:"2px 0"}}>{e.type==="PM"?"Pleine mer":"Basse mer"}</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:"1.22rem",fontWeight:700,color:C.text,lineHeight:1,marginBottom:3}}>{fmtH(e.time)}</div>
+                      <div style={{fontSize:".9rem",fontWeight:600,color:C.sky}}>{e.height.toFixed(2)} m</div>
+                      {e.type==="PM"&&coef&&<div style={{fontSize:".64rem",color:C.muted,marginTop:3,background:`rgba(${coef>=95?"224,92,58":coef>=70?"26,127,160":"80,160,200"},.1)`,borderRadius:4,padding:"1px 5px",display:"inline-block"}}>Coef. {coef}</div>}
+                    </div>
+                  ))}
+                </div>
+                {coef && (
+                  <div style={{background:"rgba(245,166,35,.06)",borderTop:"1px solid rgba(245,166,35,.15)",padding:"9px 17px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:"2rem",fontWeight:700,lineHeight:1,color:coef>=95?C.alert:coef>=70?C.ocean:C.sky}}>{coef}</div>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:".88rem",color:C.text}}>{coef>=95?"⚡ Vive-eau — Grandes marées":coef>=70?"〰️ Marée moyenne":"💧 Morte-eau"}</div>
+                      <div style={{fontSize:".72rem",color:C.muted}}>{coef>=95?"Forts courants, prudence":coef>=70?"Amplitude habituelle":"Faible amplitude"}</div>
+                    </div>
+                  </div>
+                )}
+                <div style={{padding:"4px 14px 14px"}}>
+                  <div style={{fontSize:".76rem",fontWeight:700,color:C.muted,padding:"10px 4px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span>📈 Courbe hauteur d'eau — 24h</span>
+                    {nowH!=null&&<span style={{color:C.alert,fontWeight:700}}>● {nowH.toFixed(2)} m</span>}
+                  </div>
+                  <TideChart points={tidePoints}/>
+                  <div style={{fontSize:".63rem",color:C.muted,textAlign:"right",marginTop:3}}>
+                    <a href="https://api-maree.fr" target="_blank" rel="noreferrer" style={{color:C.sky}}>api-maree.fr</a>
+                    {" · "}données <a href="https://sextant.ifremer.fr" target="_blank" rel="noreferrer" style={{color:C.sky}}>IFREMER</a> CC-BY
+                  </div>
+                </div>
+              </div>
+            )}
+            <a href="https://maree.info/126" target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:11,background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.18)",borderRadius:12,padding:"12px 15px",textDecoration:"none",color:"#fff"}}>
+              <span style={{fontSize:"1.2rem"}}>📈</span>
+              <div>
+                <div style={{fontWeight:700,fontSize:".87rem"}}>Marégramme — maree.info port 126</div>
+                <div style={{fontSize:".7rem",color:"rgba(255,255,255,.45)",marginTop:1}}>Graphique interactif · coefficients · surcotes</div>
+              </div>
+              <span style={{marginLeft:"auto",opacity:.45}}>→</span>
+            </a>
+          </div>
+        )}
+
+        {/* ══ VENT LIVE ══ */}
+        {tab==="ventlive" && (
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"flex",gap:8}}>
+              {["🏝️ Île de Ré","⚓ La Rochelle"].map((s,i)=>(
+                <button key={i} onClick={()=>{setWindSpot(i);setWind(null);}} style={{
+                  padding:"7px 16px",borderRadius:30,border:"none",cursor:"pointer",fontWeight:700,fontSize:".8rem",
+                  background:windSpot===i?C.sun:"rgba(255,255,255,.13)",
+                  color:windSpot===i?"#0b3d52":"rgba(255,255,255,.8)",
+                  boxShadow:windSpot===i?"0 3px 12px rgba(245,166,35,.4)":"none",
+                  transition:"all .18s",
+                }}>{s}</button>
+              ))}
+              <button onClick={()=>fetchWind(windSpot)} style={{marginLeft:"auto",background:"rgba(255,255,255,.1)",border:"none",borderRadius:20,color:"rgba(255,255,255,.7)",padding:"7px 13px",cursor:"pointer",fontSize:".78rem",fontWeight:600}}>↺ Rafraîchir</button>
+            </div>
+            {windLoad && <div style={{background:"rgba(255,255,255,.08)",borderRadius:13,padding:28,textAlign:"center",color:"rgba(255,255,255,.6)"}}><div style={{fontSize:"1.5rem",marginBottom:6}}>⏳</div>Chargement…</div>}
+            {wind?.error && <div style={{background:"rgba(224,92,58,.15)",border:"1.5px solid rgba(224,92,58,.4)",borderRadius:11,padding:"11px 14px",color:"#ffb3a0",fontSize:".82rem"}}>⚠️ {wind.error}</div>}
+            {wc && !windLoad && (
+              <>
+                <div style={{background:"rgba(255,255,255,.1)",borderRadius:13,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontSize:"1.25rem"}}>{condLabel.split(" ")[0]}</div>
+                  <div style={{fontWeight:700,color:"#fff",fontSize:".92rem"}}>{condLabel.slice(condLabel.indexOf(" ")+1)}</div>
+                  <div style={{marginLeft:"auto",fontFamily:"Georgia,serif",fontSize:"1.7rem",fontWeight:700,color:condColor}}>Bft {bft}</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9}}>
+                  {[
+                    {label:"Vent moyen", val:`${kn} kn`,     sub:`${Math.round(wc.wind_speed_10m*3.6)} km/h`},
+                    {label:"Rafales",    val:`${gustKn} kn`,  sub:`${Math.round(wc.wind_gusts_10m*3.6)} km/h`},
+                    {label:"Direction",  val:degToDir(dir),   sub:`${Math.round(dir)}°`},
+                    {label:"Température",val:`${Math.round(wc.temperature_2m)}°C`, sub:""},
+                    {label:"Humidité",   val:`${Math.round(wc.relative_humidity_2m)}%`, sub:""},
+                    {label:"Pression",   val:`${Math.round(wc.pressure_msl)}`,     sub:"hPa"},
+                  ].map((m,i)=>(
+                    <div key={i} style={{background:C.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 2px 10px rgba(0,0,0,.14)"}}>
+                      <div style={{fontSize:".65rem",color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:".6px",marginBottom:4}}>{m.label}</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:"1.3rem",fontWeight:700,color:C.ocean,lineHeight:1}}>{m.val}</div>
+                      {m.sub && <div style={{fontSize:".68rem",color:C.muted,marginTop:2}}>{m.sub}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:C.card,borderRadius:13,overflow:"hidden",boxShadow:"0 3px 14px rgba(0,0,0,.15)"}}>
+                  <div style={{background:`linear-gradient(135deg,${C.ocean},${C.sky})`,padding:"10px 15px",fontFamily:"Georgia,serif",fontWeight:700,color:"#fff",fontSize:".9rem"}}>
+                    📊 Prévisions — 8 prochaines heures
+                  </div>
+                  <div style={{padding:"4px 14px 12px"}}>
+                    {nextH.map((h,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<nextH.length-1?"1px solid "+C.border:"none"}}>
+                        <span style={{fontSize:".78rem",color:C.muted,minWidth:32,fontWeight:600}}>{String(h.t.getHours()).padStart(2,"0")}h</span>
+                        <span style={{fontSize:".84rem",fontWeight:700,color:C.ocean,minWidth:52}}>{h.spKn} kn</span>
+                        <span style={{fontSize:".76rem",color:C.muted,minWidth:52}}>↑ {h.gKn} kn</span>
+                        <span style={{fontSize:".74rem",color:C.sky,minWidth:38}}>{degToDir(h.dir)}</span>
+                        <div style={{flex:1,background:C.foam,borderRadius:4,height:5}}>
+                          <div style={{height:5,borderRadius:4,background:C.sky,width:`${Math.round((h.spKn/maxSpKn)*100)}%`,transition:"width .3s"}}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{padding:"6px 14px 10px",fontSize:".62rem",color:C.muted,textAlign:"right"}}>
+                    Source : <a href="https://open-meteo.com" target="_blank" rel="noreferrer" style={{color:C.sky}}>Open-Meteo</a> · Météo-France AROME 1.3 km
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══ PRÉVISIONS ══ */}
+        {tab==="vent" && (
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.card,borderRadius:14,overflow:"hidden",boxShadow:"0 4px 18px rgba(0,0,0,.18)"}}>
+              <div style={{background:`linear-gradient(135deg,${C.ocean},${C.sky})`,padding:"11px 15px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontFamily:"Georgia,serif",fontWeight:700,color:"#fff",fontSize:".95rem"}}>🌍 Carte vent live — ECMWF</div>
+                <a href="https://www.windy.com/?46.25,-1.45,11" target="_blank" rel="noreferrer" style={{fontSize:".68rem",color:"rgba(255,255,255,.6)",textDecoration:"none"}}>Plein écran →</a>
+              </div>
+              <div style={{position:"relative",paddingBottom:"56.25%",height:0}}>
+                <iframe src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=11&overlay=wind&product=ecmwf&level=surface&lat=46.25&lon=-1.45&detailLat=46.20&detailLon=-1.43&detail=true&pressure=true&message=true"
+                  style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} allowFullScreen title="Windy"/>
+              </div>
+            </div>
+            <div style={{background:"rgba(255,255,255,.09)",borderRadius:13,padding:"13px 15px"}}>
+              <div style={{fontWeight:700,color:"rgba(255,255,255,.9)",fontSize:".86rem",marginBottom:9}}>🏄 Prévisions vagues & vent</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {SURF_LINKS.map((l,i)=>(
+                  <a key={i} href={l.url} target="_blank" rel="noreferrer"
+                    style={{display:"flex",alignItems:"center",gap:9,background:"rgba(255,255,255,.07)",border:"1px solid rgba(255,255,255,.13)",borderRadius:10,padding:"9px 12px",textDecoration:"none",color:"#fff"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.15)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.07)"}>
+                    <span style={{fontSize:"1.05rem",flexShrink:0}}>{l.icon}</span>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:".84rem"}}>{l.name}</div>
+                      <div style={{fontSize:".68rem",color:"rgba(255,255,255,.45)",marginTop:1}}>{l.sub}</div>
+                    </div>
+                    <span style={{marginLeft:"auto",opacity:.35}}>→</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      <div style={{textAlign:"center",padding:"0 18px 18px",fontSize:".62rem",color:"rgba(255,255,255,.25)"}}>
+        Windfinder · Windguru · Windy · api-maree.fr (IFREMER CC-BY) · Open-Meteo
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
