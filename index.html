@@ -163,7 +163,7 @@ function TideChart({ points }) {
 
 /* ── APP ── */
 function App() {
-  const [tab, setTab] = useState("ventlive");
+  const [tab, setTab] = useState("trafic");
   const [apiKey, setApiKey] = useState(() => { try{return localStorage.getItem("apimaree_key")||"";}catch{return "";} });
   const [tidePoints, setTidePoints] = useState(null);
   const [extrema, setExtrema] = useState([]);
