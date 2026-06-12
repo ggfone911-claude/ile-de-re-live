@@ -145,7 +145,7 @@ function TideChart({ points }) {
 /* ── APP ── */
 function App() {
   const [tab,setTab]=useState("ventlive");
-  const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem("apimaree_key")||"";}catch{return "";}});
+  const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem("apimaree_key")||"d9c83d8ea93df6cc3cbb80be0745e581";}catch{return "d9c83d8ea93df6cc3cbb80be0745e581";}});
   const [tidePoints,setTidePoints]=useState(null);
   const [extrema,setExtrema]=useState([]);
   const [coef,setCoef]=useState(null);
