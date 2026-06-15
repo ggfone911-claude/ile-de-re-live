@@ -1,4 +1,4 @@
-const CACHE = 'ile-de-re-v1';
+const CACHE = 'surf-france-v1';
 const ASSETS = [
   './',
   './index.html',

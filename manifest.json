@@ -1,7 +1,7 @@
 {
-  "name": "Île de Ré Live",
-  "short_name": "Ré Live",
-  "description": "Surf · Kite · Marées · Trafic — Île de Ré",
+  "name": "Surf France Live",
+  "short_name": "Surf France",
+  "description": "Vent · Marées · Prévisions — tous les spots France",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
