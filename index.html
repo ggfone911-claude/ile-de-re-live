@@ -21,11 +21,12 @@ input::placeholder{color:#aac4d0;}
 button{-webkit-appearance:none;touch-action:manipulation;}
 @media (max-width:380px){.metric-grid{grid-template-columns:repeat(2,1fr)!important;}}
 </style>
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='38' fill='%230b3d52'/%3E%3Ccircle cx='132' cy='48' r='26' fill='%23f5a623'/%3E%3Cpath d='M-10 112 Q28 88 58 112 Q88 136 118 112 Q148 88 190 112L190 180H-10Z' fill='%231a7fa0' opacity='.6'/%3E%3Cpath d='M-10 128 Q32 104 62 128 Q92 152 128 128 Q158 104 190 128L190 180H-10Z' fill='%231a7fa0' opacity='.85'/%3E%3Cpath d='M-10 144 Q35 120 65 144 Q95 166 132 144 Q160 120 190 144L190 180H-10Z' fill='%23fff' opacity='.15'/%3E%3Cpath d='M-10 148 Q35 124 65 148 Q95 170 132 148 Q160 124 190 148L190 180H-10Z' fill='%230b3d52'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Île de Ré">
-<meta name="theme-color" content="#f0f4f8">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ré Live">
+<meta name="theme-color" content="#0b3d52">
 </head>
 <body>
 <div id="root"></div>
@@ -1337,6 +1338,14 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(e => console.warn('SW:', e));
+  });
+}
 </script>
 </body>
 </html>

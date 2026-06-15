@@ -1,0 +1,25 @@
+{
+  "name": "Île de Ré Live",
+  "short_name": "Ré Live",
+  "description": "Surf · Kite · Marées · Trafic — Île de Ré",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f4f8",
+  "theme_color": "#0b3d52",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
