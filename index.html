@@ -27,7 +27,7 @@ button{-webkit-appearance:none;touch-action:manipulation;}
 .region-label{font-size:11px;font-weight:700;color:#5a7d8c;text-transform:uppercase;letter-spacing:.8px;padding:14px 0 6px;}
 .spot-row{display:flex;align-items:center;padding:12px 14px;border-radius:14px;cursor:pointer;gap:12px;margin-bottom:2px;transition:background .1s;}
 .spot-row:active{background:#e8f5fb;}
-.spot-row.active{background:#e8f5fb;}
+.sport-chip{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:20px;border:1.5px solid;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;transition:all .15s;flex-shrink:0;}
 @media(max-width:380px){.metric-grid{grid-template-columns:repeat(2,1fr)!important;}}
 </style>
 <link rel="manifest" href="manifest.json">
@@ -50,16 +50,40 @@ const C = {
   white:"#ffffff", card:"#ffffff",
 };
 
-/* ── SPOTS FRANCE ── */
+/* ── SPORTS ── */
+const SPORTS = [
+  { id:"kite",      label:"Kitesurf",  icon:"🪁", wind:{min:10,max:35,opt:[14,28]},
+    verdict:kn=>kn==null?"…":kn<10?"Pas assez de vent":kn>35?"Trop fort — dangereux":kn>=14&&kn<=28?"Idéal 🎉":"Possible" },
+  { id:"windsurf",  label:"Windsurf",  icon:"🏄", wind:{min:8,max:32,opt:[12,24]},
+    verdict:kn=>kn==null?"…":kn<8?"Pas assez de vent":kn>32?"Trop fort":kn>=12&&kn<=24?"Idéal 🎉":"Possible" },
+  { id:"surf",      label:"Surf",      icon:"🌊", wind:{min:0,max:20,opt:[4,16]},
+    verdict:kn=>kn==null?"…":kn>20?"Vent trop fort":kn>=4&&kn<=16?"Bonnes conditions 🎉":"Vent léger — vérifier houle" },
+  { id:"wingfoil",  label:"Wingfoil",  icon:"🦅", wind:{min:10,max:30,opt:[12,22]},
+    verdict:kn=>kn==null?"…":kn<10?"Pas assez":kn>30?"Trop fort":kn>=12&&kn<=22?"Idéal 🎉":"Possible" },
+  { id:"sup",       label:"SUP",       icon:"🚣", wind:{min:0,max:14,opt:[0,8]},
+    verdict:kn=>kn==null?"…":kn>14?"Trop venteux pour le SUP":kn<=8?"Idéal 🎉":"Acceptable" },
+  { id:"swim",      label:"Baignade",  icon:"🏊", wind:{min:0,max:20,opt:[0,12]},
+    verdict:kn=>kn==null?"…":kn>20?"Mer agitée":kn<=12?"Bonnes conditions 🎉":"Mer formée" },
+];
+
+function sportLevel(sport, kn) {
+  if (kn == null) return "unknown";
+  const { min, max, opt } = sport.wind;
+  if (kn < min || kn > max) return "bad";
+  if (kn >= opt[0] && kn <= opt[1]) return "good";
+  return "ok";
+}
+const levelColor = { good:C.green, ok:C.sun, bad:C.alert, unknown:C.sub };
+const levelBg    = { good:C.greenBg, ok:C.sunBg, bad:C.alertBg, unknown:C.bg };
+
+/* ── SPOTS ── */
 const SPOTS = [
-  // Pays Basque
   {id:"hendaye",      name:"Hendaye",              region:"Pays Basque",        lat:43.375,lon:-1.775,tide:"saint-jean-de-luz",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Hendaye/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/hendaye"}]},
   {id:"saint-jean-luz",name:"Saint-Jean-de-Luz",  region:"Pays Basque",        lat:43.390,lon:-1.661,tide:"saint-jean-de-luz",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/saint_jean_de_luz"}]},
   {id:"biarritz",     name:"Biarritz",             region:"Pays Basque",        lat:43.483,lon:-1.558,tide:"boucau-bayonne-biarritz",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Biarritz-Grande-Plage/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/biarritz"},{n:"Windguru",u:"https://www.windguru.cz/229"}]},
-  // Landes
   {id:"hossegor",     name:"Hossegor",             region:"Landes",             lat:43.668,lon:-1.421,tide:"vieux-boucau",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Hossegor-La-Graviere/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/hossegor_les_culs_nuls"},{n:"Windguru",u:"https://www.windguru.cz/227"}]},
   {id:"capbreton",    name:"Capbreton",            region:"Landes",             lat:43.643,lon:-1.441,tide:"vieux-boucau",
@@ -72,12 +96,10 @@ const SPOTS = [
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Biscarrosse-Plage/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/biscarrosse_plage"}]},
   {id:"lacanau",      name:"Lacanau-Océan",        region:"Landes",             lat:44.975,lon:-1.196,tide:"lacanau-large",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Lacanau/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/lacanau-ocean"},{n:"Windguru",u:"https://www.windguru.cz/211"}]},
-  // Gironde
   {id:"cap-ferret",   name:"Cap Ferret",           region:"Gironde",            lat:44.632,lon:-1.239,tide:"cap-ferret",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/cap_ferret"}]},
   {id:"arcachon",     name:"Arcachon",             region:"Gironde",            lat:44.666,lon:-1.178,tide:"arcachon",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/arcachon"}]},
-  // Charente-Maritime
   {id:"royan",        name:"Royan",                region:"Charente-Maritime",  lat:45.623,lon:-1.032,tide:"royan",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/royan"}]},
   {id:"oleron",       name:"Île d'Oléron",         region:"Charente-Maritime",  lat:45.906,lon:-1.354,tide:"ile-d-oleron-la-cotiniere",
@@ -86,7 +108,6 @@ const SPOTS = [
    links:[{n:"Surf-Forecast Grenettes",u:"https://www.surf-forecast.com/breaks/Ile-de-Re-Les-Grenettes/forecasts/latest/six_day"},{n:"Surf-Forecast Petit Bec",u:"https://www.surf-forecast.com/breaks/Ile-de-Re-Petit-Bec/forecasts/latest/six_day"},{n:"MagicSeaweed",u:"https://www.magicseaweed.com/Ile-De-Re-Surf-Report/6584/"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/ile_de_re_le_bois_plage_en_re"},{n:"Windguru",u:"https://www.windguru.cz/1589"}]},
   {id:"la-rochelle",  name:"La Rochelle",          region:"Charente-Maritime",  lat:46.160,lon:-1.150,tide:"la-rochelle-pallice",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/la_rochelle"}]},
-  // Vendée
   {id:"sables",       name:"Les Sables-d'Olonne",  region:"Vendée",             lat:46.497,lon:-1.797,tide:"les-sables-d-olonne",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/les_sables_d_olonne"}]},
   {id:"saint-gilles", name:"Saint-Gilles-Croix-de-Vie",region:"Vendée",        lat:46.693,lon:-1.950,tide:"saint-gilles-croix-de-vie",
@@ -95,19 +116,16 @@ const SPOTS = [
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/ile_d_yeu"}]},
   {id:"noirmoutier",  name:"Noirmoutier",          region:"Vendée",             lat:47.039,lon:-2.337,tide:"noirmoutier-l-herbaudiere",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/noirmoutier_l_herbaudiere"}]},
-  // Loire-Atlantique
   {id:"la-baule",     name:"La Baule",             region:"Loire-Atlantique",   lat:47.290,lon:-2.393,tide:"le-croisic",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/la_baule"}]},
   {id:"saint-nazaire",name:"Saint-Nazaire",        region:"Loire-Atlantique",   lat:47.270,lon:-2.201,tide:"saint-nazaire",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/saint_nazaire"}]},
-  // Morbihan
   {id:"quiberon",     name:"Quiberon",             region:"Morbihan",           lat:47.484,lon:-3.095,tide:"quiberon-port-haliguen",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Quiberon/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/quiberon"}]},
   {id:"trinite",      name:"La Trinité-sur-Mer",   region:"Morbihan",           lat:47.588,lon:-3.015,tide:"la-trinite-sur-mer",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/la_trinite_sur_mer"}]},
   {id:"belle-ile",    name:"Belle-Île",            region:"Morbihan",           lat:47.350,lon:-3.151,tide:"belle-ile-le-palais",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/belle_ile_le_palais"}]},
-  // Finistère Sud
   {id:"le-pouldu",    name:"Guidel / Le Pouldu",   region:"Finistère",          lat:47.765,lon:-3.537,tide:"le-pouldu",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/guidel_plage"}]},
   {id:"la-torche",    name:"La Torche",            region:"Finistère",          lat:47.835,lon:-4.354,tide:"penmarch-saint-guenole",
@@ -118,19 +136,16 @@ const SPOTS = [
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Crozon-La-Palue/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/morgat"}]},
   {id:"brest",        name:"Brest",               region:"Finistère",          lat:48.390,lon:-4.480,tide:"brest",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/brest_france"}]},
-  // Bretagne Nord
   {id:"roscoff",      name:"Roscoff",             region:"Bretagne Nord",      lat:48.726,lon:-3.985,tide:"roscoff",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/roscoff"}]},
   {id:"perros",       name:"Perros-Guirec",       region:"Bretagne Nord",      lat:48.821,lon:-3.435,tide:"perros-guirec",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/perros_guirec"}]},
   {id:"saint-malo",   name:"Saint-Malo",          region:"Bretagne Nord",      lat:48.650,lon:-2.010,tide:"saint-malo",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/saint_malo"}]},
-  // Normandie
   {id:"granville",    name:"Granville",           region:"Normandie",          lat:48.840,lon:-1.590,tide:"granville",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/granville"}]},
   {id:"cherbourg",    name:"Cherbourg",           region:"Normandie",          lat:49.650,lon:-1.620,tide:"cherbourg",
    links:[{n:"Windfinder",u:"https://fr.windfinder.com/forecast/cherbourg"}]},
-  // Côte d'Opale
   {id:"wissant",      name:"Wissant",             region:"Côte d'Opale",       lat:50.894,lon:1.661, tide:"wissant",
    links:[{n:"Surf-Forecast",u:"https://www.surf-forecast.com/breaks/Wissant/forecasts/latest/six_day"},{n:"Windfinder",u:"https://fr.windfinder.com/forecast/wissant"}]},
   {id:"boulogne",     name:"Boulogne-sur-Mer",    region:"Côte d'Opale",       lat:50.735,lon:1.581, tide:"boulogne-sur-mer",
@@ -246,27 +261,16 @@ function TideChart({ points }) {
 function SpotSelector({ selected, onSelect, onClose }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
-
-  useEffect(()=>{
-    setTimeout(()=>inputRef.current?.focus(),350);
-  },[]);
-
+  useEffect(()=>{setTimeout(()=>inputRef.current?.focus(),350);},[]);
   const filtered = useMemo(()=>{
-    const q = query.toLowerCase().trim();
-    if(!q) return SPOTS;
-    return SPOTS.filter(s=>
-      s.name.toLowerCase().includes(q) ||
-      s.region.toLowerCase().includes(q)
-    );
+    const q=query.toLowerCase().trim();
+    return q ? SPOTS.filter(s=>s.name.toLowerCase().includes(q)||s.region.toLowerCase().includes(q)) : SPOTS;
   },[query]);
-
   const regions = useMemo(()=>{
-    const r = [];
-    const seen = new Set();
-    filtered.forEach(s=>{ if(!seen.has(s.region)){ seen.add(s.region); r.push(s.region); }});
+    const r=[]; const seen=new Set();
+    filtered.forEach(s=>{if(!seen.has(s.region)){seen.add(s.region);r.push(s.region);}});
     return r;
   },[filtered]);
-
   return(
     <>
       <div className="sheet-backdrop" onClick={onClose}/>
@@ -275,24 +279,19 @@ function SpotSelector({ selected, onSelect, onClose }) {
         <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"center",gap:10}}>
           <div style={{flex:1,display:"flex",alignItems:"center",gap:8,background:C.bg,borderRadius:12,padding:"9px 12px"}}>
             {Icon.search(C.sub,16)}
-            <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)}
-              placeholder="Rechercher un spot…"
+            <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Rechercher un spot…"
               style={{flex:1,border:"none",background:"transparent",fontSize:15,color:C.text}}/>
             {query&&<button onClick={()=>setQuery("")} style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex"}}>{Icon.x(C.sub,14)}</button>}
           </div>
-          <button onClick={onClose} style={{background:"none",border:"none",padding:"6px",cursor:"pointer",display:"flex",borderRadius:8}}>
-            {Icon.close(C.sub,20)}
-          </button>
+          <button onClick={onClose} style={{background:"none",border:"none",padding:6,cursor:"pointer",display:"flex",borderRadius:8}}>{Icon.close(C.sub,20)}</button>
         </div>
         <div className="spot-list">
           {regions.map(region=>(
             <div key={region}>
               <div className="region-label">{region}</div>
               {filtered.filter(s=>s.region===region).map(s=>(
-                <div key={s.id} className={`spot-row${s.id===selected.id?" active":""}`}
-                  onClick={()=>{onSelect(s);onClose();}}>
-                  <div style={{width:32,height:32,borderRadius:10,background:s.id===selected.id?C.skyBg:C.bg,
-                    display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <div key={s.id} className={`spot-row${s.id===selected.id?" active":""}`} onClick={()=>{onSelect(s);onClose();}}>
+                  <div style={{width:32,height:32,borderRadius:10,background:s.id===selected.id?C.skyBg:C.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                     {Icon.pin(s.id===selected.id?C.ocean:C.sub,14)}
                   </div>
                   <div style={{flex:1}}>
@@ -313,22 +312,19 @@ function SpotSelector({ selected, onSelect, onClose }) {
 
 /* ── APP ── */
 function App() {
-  const DEFAULT_SPOT = SPOTS.find(s=>s.id==="ile-de-re") || SPOTS[0];
+  const DEFAULT_SPOT = SPOTS.find(s=>s.id==="ile-de-re")||SPOTS[0];
 
   const [spot, setSpot] = useState(()=>{
-    try{
-      const id = localStorage.getItem("surf_spot");
-      return (id && SPOTS.find(s=>s.id===id)) || DEFAULT_SPOT;
-    }catch{ return DEFAULT_SPOT; }
+    try{ const id=localStorage.getItem("surf_spot"); return (id&&SPOTS.find(s=>s.id===id))||DEFAULT_SPOT; }catch{ return DEFAULT_SPOT; }
+  });
+  const [selectedSports, setSelectedSports] = useState(()=>{
+    try{ const s=localStorage.getItem("surf_sports"); return s?JSON.parse(s):["kite","surf"]; }catch{ return ["kite","surf"]; }
   });
   const [showSelector, setShowSelector] = useState(false);
-  const [tab, setTab] = useState("ventlive");
+  const [tab, setTab] = useState("aujourdhui");
 
-  // Wind state
   const [wind, setWind] = useState(null);
   const [windLoad, setWindLoad] = useState(false);
-
-  // Tides state
   const [apiKey] = useState(()=>{try{return localStorage.getItem("apimaree_key")||"d9c83d8ea93df6cc3cbb80be0745e581";}catch{return "d9c83d8ea93df6cc3cbb80be0745e581";}});
   const [tidePoints, setTidePoints] = useState(null);
   const [extrema, setExtrema] = useState([]);
@@ -341,6 +337,14 @@ function App() {
   const degToDir=d=>DIR16[Math.round(d/22.5)%16];
   const toKn=ms=>Math.round(ms*1.94384);
   const toBft=kn=>kn<1?0:kn<4?1:kn<7?2:kn<11?3:kn<17?4:kn<22?5:kn<28?6:kn<34?7:kn<41?8:kn<48?9:kn<56?10:kn<64?11:12;
+
+  const toggleSport = useCallback(id=>{
+    setSelectedSports(prev=>{
+      const next = prev.includes(id)?prev.filter(s=>s!==id):[...prev,id];
+      try{localStorage.setItem("surf_sports",JSON.stringify(next));}catch{}
+      return next;
+    });
+  },[]);
 
   const fetchWind = useCallback(async(s)=>{
     setWindLoad(true); setWind(null);
@@ -368,37 +372,29 @@ function App() {
   const loadTides = useCallback(async(s)=>{
     if(!s.tide){ setTideError("Pas de station marée pour ce spot."); return; }
     setTideLoad(true); setTideError(""); setTidePoints(null); setExtrema([]); setCoef(null); setNowH(null);
-    const now=new Date(), p2=n=>String(n).padStart(2,"0");
+    const now=new Date(),p2=n=>String(n).padStart(2,"0");
     const d=`${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
     try{
       const r=await fetch(`https://api-maree.fr/water-levels?site=${s.tide}&from=${d}T00:00&to=${d}T23:59&step=10&tz=Europe/Paris&key=${encodeURIComponent(apiKey)}`);
       if(!r.ok) throw new Error(r.status===401||r.status===403?"Clé API invalide.":`Erreur ${r.status}`);
       const data=await r.json();
       if(!data.data?.length) throw new Error("Aucune donnée.");
-      const pts=data.data, ex=computeExtrema(pts);
+      const pts=data.data,ex=computeExtrema(pts);
       setTidePoints(pts); setExtrema(ex);
-      const pm=ex.find(e=>e.type==="PM"), bm=ex.find(e=>e.type==="BM");
+      const pm=ex.find(e=>e.type==="PM"),bm=ex.find(e=>e.type==="BM");
       if(pm&&bm) setCoef(Math.max(20,Math.min(120,Math.round(20+(pm.height-bm.height-0.6)/5*100))));
-      const tF=new Date(pts[0].time).getTime(), tL=new Date(pts[pts.length-1].time).getTime(), nMs=Date.now();
+      const tF=new Date(pts[0].time).getTime(),tL=new Date(pts[pts.length-1].time).getTime(),nMs=Date.now();
       if(nMs>=tF&&nMs<=tL) setNowH(pts[Math.round((nMs-tF)/(tL-tF)*(pts.length-1))]?.height);
     }catch(e){setTideError(e.message);}
     finally{setTideLoad(false);}
   },[apiKey]);
 
-  // On spot change: reset + reload
   useEffect(()=>{
-    try{ localStorage.setItem("surf_spot", spot.id); }catch{}
+    try{localStorage.setItem("surf_spot",spot.id);}catch{}
     setWind(null); setTidePoints(null); setExtrema([]); setCoef(null); setNowH(null); setTideError("");
-    if(tab==="ventlive") fetchWind(spot);
-    if(tab==="marees") loadTides(spot);
+    fetchWind(spot); loadTides(spot);
   },[spot]);
 
-  useEffect(()=>{
-    if(tab==="ventlive") fetchWind(spot);
-    if(tab==="marees") loadTides(spot);
-  },[tab]);
-
-  // Initial load
   useEffect(()=>{ fetchWind(spot); loadTides(spot); },[]);
 
   const fmtH=iso=>new Date(iso).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
@@ -410,42 +406,52 @@ function App() {
   const gustKn=wc?toKn(wc.wind_gusts_10m):null;
   const bft=kn!=null?toBft(kn):null;
   const dir=wc?.wind_direction_10m;
-  const cond=kn==null?null:
-    kn>=12&&kn<=25?{label:"Idéal kite / planche",bg:C.skyBg,color:C.ocean}:
-    kn>=6?{label:"Bon pour le surf",bg:C.greenBg,color:C.green}:
-    kn<6?{label:"Vent calme",bg:"#f5f5f5",color:C.sub}:
-    {label:"Vent fort — prudence",bg:C.alertBg,color:C.alert};
 
+  // Best window per sport from hourly data
   const now2=new Date();
-  const nextH=wind?.hourly?wind.hourly.time.reduce((acc,t,i)=>{
+  const hourly=wind?.hourly;
+  const getBestWindow = useCallback((sport)=>{
+    if(!hourly) return null;
+    const todayStr=now2.toLocaleDateString("fr-FR");
+    const slots=hourly.time.map((t,i)=>({
+      t:new Date(t),kn:toKn(hourly.wind_speed_10m[i])
+    })).filter(s=>s.t.toLocaleDateString("fr-FR")===todayStr&&s.t>now2);
+    const good=slots.filter(s=>sportLevel(sport,s.kn)==="good");
+    if(!good.length) return null;
+    const first=good[0].t,last=good[good.length-1].t;
+    return `${String(first.getHours()).padStart(2,"0")}h → ${String(last.getHours()).padStart(2,"0")}h`;
+  },[hourly]);
+
+  const TABS=[
+    {id:"aujourdhui", label:"Aujourd'hui", bg:C.navy,
+     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>},
+    {id:"ventlive",   label:"Vent",        bg:C.ocean,
+     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>},
+    {id:"marees",     label:"Marées",      bg:C.sky,
+     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>},
+    {id:"previsions", label:"Prévisions",  bg:C.green,
+     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/></svg>},
+  ];
+
+  const nextH=hourly?hourly.time.reduce((acc,t,i)=>{
     if(acc.length>=8) return acc;
-    if(new Date(t)>now2) acc.push({t:new Date(t),spKn:toKn(wind.hourly.wind_speed_10m[i]),gKn:toKn(wind.hourly.wind_gusts_10m[i]),dir:wind.hourly.wind_direction_10m[i]});
+    if(new Date(t)>now2) acc.push({t:new Date(t),spKn:toKn(hourly.wind_speed_10m[i]),gKn:toKn(hourly.wind_gusts_10m[i]),dir:hourly.wind_direction_10m[i]});
     return acc;
   },[]):[];
   const maxSpKn=nextH.length?Math.max(...nextH.map(h=>h.spKn)):1;
 
-  const TABS=[
-    {id:"ventlive", label:"Vent",      bg:C.ocean,
-     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>},
-    {id:"marees",   label:"Marées",    bg:C.sky,
-     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>},
-    {id:"previsions",label:"Prévisions",bg:C.green,
-     ic:a=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/></svg>},
-  ];
-
   return(
-    <div style={{background:C.bg,minHeight:"100vh",paddingBottom:"max(40px,calc(env(safe-area-inset-bottom) + 20px))"}}>
+    <div style={{background:C.bg,minHeight:"100vh",paddingBottom:"max(40px,calc(env(safe-area-inset-bottom)+20px))"}}>
 
       {/* ── HEADER ── */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,
-        padding:"max(16px,calc(env(safe-area-inset-top) + 10px)) max(18px,calc(env(safe-area-inset-right)+10px)) 12px max(18px,calc(env(safe-area-inset-left)+10px))",
+        padding:"max(16px,calc(env(safe-area-inset-top)+10px)) max(18px,calc(env(safe-area-inset-right)+10px)) 12px max(18px,calc(env(safe-area-inset-left)+10px))",
         display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:10}}>
         <div style={{width:40,height:40,borderRadius:12,background:C.navy,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/>
           </svg>
         </div>
-        {/* Spot selector button */}
         <button onClick={()=>setShowSelector(true)} style={{flex:1,display:"flex",alignItems:"center",gap:8,background:C.bg,
           border:`1.5px solid ${C.border}`,borderRadius:12,padding:"8px 12px",cursor:"pointer",textAlign:"left"}}>
           <div style={{flex:1}}>
@@ -461,14 +467,12 @@ function App() {
       </div>
 
       {/* ── TABS ── */}
-      <div style={{display:"flex",gap:8,
-        padding:"10px max(16px,calc(env(safe-area-inset-right)+10px)) 10px max(16px,calc(env(safe-area-inset-left)+10px))",
+      <div style={{display:"flex",gap:8,padding:"10px max(16px,calc(env(safe-area-inset-right)+10px)) 10px max(16px,calc(env(safe-area-inset-left)+10px))",
         overflowX:"auto",scrollbarWidth:"none",background:C.white,borderBottom:`1px solid ${C.border}`}}>
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
             display:"flex",alignItems:"center",gap:6,padding:"9px 14px",borderRadius:22,
-            border:`1.5px solid ${tab===t.id?t.bg:C.border}`,cursor:"pointer",fontWeight:600,
-            fontSize:14,whiteSpace:"nowrap",flexShrink:0,
+            border:`1.5px solid ${tab===t.id?t.bg:C.border}`,cursor:"pointer",fontWeight:600,fontSize:14,whiteSpace:"nowrap",flexShrink:0,
             background:tab===t.id?t.bg:C.white,color:tab===t.id?C.white:C.sub,
             boxShadow:tab===t.id?`0 2px 8px ${t.bg}44`:"none",transition:"all .15s",
           }}>
@@ -479,66 +483,161 @@ function App() {
 
       <div style={{padding:"16px max(16px,calc(env(safe-area-inset-right)+10px)) 0 max(16px,calc(env(safe-area-inset-left)+10px))"}} className="fade">
 
+        {/* ══ AUJOURD'HUI ══ */}
+        {tab==="aujourdhui"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* Sélection des sports */}
+            <div>
+              <div style={{fontSize:11,color:C.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:".6px",marginBottom:10}}>Mes activités</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {SPORTS.map(s=>{
+                  const on=selectedSports.includes(s.id);
+                  return(
+                    <button key={s.id} onClick={()=>toggleSport(s.id)} className="sport-chip" style={{
+                      borderColor:on?C.ocean:C.border,
+                      background:on?C.skyBg:C.white,
+                      color:on?C.ocean:C.sub,
+                    }}>
+                      <span style={{fontSize:16}}>{s.icon}</span>{s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Verdicts */}
+            {(windLoad)&&<div className="card" style={{padding:32,textAlign:"center",color:C.sub,fontSize:14}}>Chargement…</div>}
+            {selectedSports.length===0&&<div className="card" style={{padding:20,textAlign:"center",color:C.sub,fontSize:14}}>Sélectionne au moins une activité ci-dessus</div>}
+
+            {!windLoad&&selectedSports.map(sid=>{
+              const sport=SPORTS.find(s=>s.id===sid);
+              if(!sport) return null;
+              const level=sportLevel(sport,kn);
+              const col=levelColor[level];
+              const bg=levelBg[level];
+              const window=getBestWindow(sport);
+              return(
+                <div key={sid} className="card" style={{borderLeft:`4px solid ${col}`}}>
+                  <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:28}}>{sport.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:15,color:C.navy}}>{sport.label}</div>
+                      <div style={{fontSize:13,color:col,fontWeight:600,marginTop:3}}>{sport.verdict(kn)}</div>
+                    </div>
+                    {kn!=null&&<div style={{textAlign:"right"}}>
+                      <div style={{fontSize:22,fontWeight:700,color:col,lineHeight:1}}>{kn}<span style={{fontSize:12,color:C.sub,fontWeight:400}}> kn</span></div>
+                      <div style={{fontSize:11,color:C.sub,marginTop:2}}>Bft {bft}</div>
+                    </div>}
+                  </div>
+                  {(window||sport.wind.opt)&&<div style={{padding:"10px 16px",borderTop:`1px solid ${C.border}`,background:C.bg,display:"flex",gap:16,flexWrap:"wrap"}}>
+                    <div style={{fontSize:11,color:C.sub}}>
+                      <span style={{fontWeight:600}}>Zone idéale : </span>{sport.wind.opt[0]}–{sport.wind.opt[1]} kn
+                    </div>
+                    {window&&<div style={{fontSize:11,color:C.green,fontWeight:600}}>
+                      ✓ Fenêtre aujourd'hui : {window}
+                    </div>}
+                    {!window&&kn!=null&&level!=="good"&&<div style={{fontSize:11,color:C.sub}}>
+                      Pas de créneau idéal aujourd'hui
+                    </div>}
+                  </div>}
+                </div>
+              );
+            })}
+
+            {/* Résumé marées */}
+            {(tidePoints||extrema.length>0)&&(
+              <div className="card">
+                <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontWeight:700,fontSize:13,color:C.navy,display:"flex",alignItems:"center",gap:8}}>
+                    {Icon.wave(C.sky,16)} Marées — {spot.name}
+                  </div>
+                  <div style={{fontSize:11,color:C.sub,textTransform:"capitalize"}}>{today}</div>
+                </div>
+                {nowH!=null&&<div style={{padding:"10px 16px",background:C.skyBg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:C.alert,display:"inline-block",animation:"blink 1.4s ease-in-out infinite",flexShrink:0}}/>
+                  <span style={{fontSize:12,color:C.sub}}>Maintenant</span>
+                  <span style={{marginLeft:"auto",fontSize:18,fontWeight:700,color:C.ocean}}>{nowH.toFixed(2)} m</span>
+                </div>}
+                <div style={{display:"flex",gap:8,padding:"12px 16px",flexWrap:"wrap"}}>
+                  {extrema.map((e,i)=>(
+                    <div key={i} style={{flex:"1 0 auto",minWidth:90,textAlign:"center",background:e.type==="PM"?C.skyBg:C.bg,
+                      borderRadius:12,padding:"12px 10px",border:`1px solid ${C.border}`}}>
+                      <div style={{fontSize:10,color:C.sub,textTransform:"uppercase",letterSpacing:".6px",fontWeight:600,marginBottom:4}}>
+                        {e.type==="PM"?"Pleine mer":"Basse mer"}
+                      </div>
+                      <div style={{fontSize:18,fontWeight:700,color:e.type==="PM"?C.ocean:C.navy,lineHeight:1,marginBottom:2}}>{fmtH(e.time)}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:C.sub}}>{e.height.toFixed(2)} m</div>
+                      {e.type==="PM"&&coef&&<div style={{fontSize:11,color:coef>=95?C.alert:C.ocean,fontWeight:700,marginTop:4}}>Coef. {coef}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tideLoad&&<div style={{textAlign:"center",color:C.sub,fontSize:13,padding:"8px 0"}}>Chargement des marées…</div>}
+            {tideError&&<div style={{textAlign:"center",color:C.sub,fontSize:12,padding:"4px 0"}}>{tideError}</div>}
+          </div>
+        )}
+
         {/* ══ VENT ══ */}
         {tab==="ventlive"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"flex-end"}}>
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
               <button onClick={()=>fetchWind(spot)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:20,
                 color:C.ocean,padding:"8px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13,fontWeight:600}}>
                 {Icon.refresh(C.ocean,13)} Actualiser
               </button>
             </div>
-            {windLoad&&<div className="card" style={{padding:40,textAlign:"center",color:C.sub,fontSize:14}}>Chargement du vent…</div>}
-            {wind?.error&&<div className="card" style={{padding:16,color:C.alert,fontSize:13,borderLeft:`3px solid ${C.alert}`}}><strong>Erreur :</strong> {wind.error}</div>}
-            {wc&&!windLoad&&(
-              <>
-                {cond&&<div style={{background:cond.bg,borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:cond.color,flexShrink:0}}/>
-                  <span style={{fontWeight:600,fontSize:14,color:cond.color}}>{cond.label}</span>
-                  <span style={{marginLeft:"auto",fontWeight:700,fontSize:24,color:cond.color}}>Bft {bft}</span>
-                </div>}
-                <div className="metric-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                  {[
-                    {label:"Vent moyen",val:`${kn}`,unit:"kn",sub:`${Math.round(wc.wind_speed_10m*3.6)} km/h`,color:C.ocean},
-                    {label:"Rafales",val:`${gustKn}`,unit:"kn",sub:`${Math.round(wc.wind_gusts_10m*3.6)} km/h`,color:C.sky},
-                    {label:"Direction",val:degToDir(dir),unit:"",sub:`${Math.round(dir)}°`,color:C.navy},
-                    {label:"Température",val:`${Math.round(wc.temperature_2m)}`,unit:"°C",sub:"",color:C.sun},
-                    {label:"Humidité",val:`${Math.round(wc.relative_humidity_2m)}`,unit:"%",sub:"",color:C.sky},
-                    {label:"Pression",val:`${Math.round(wc.pressure_msl)}`,unit:"",sub:"hPa",color:C.sub},
-                  ].map((m,i)=>(
-                    <div key={i} className="card" style={{padding:"14px 12px 12px"}}>
-                      <div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>{m.label}</div>
-                      <div style={{fontSize:22,fontWeight:700,color:m.color,lineHeight:1,letterSpacing:"-.5px"}}>
-                        {m.val}<span style={{fontSize:12,fontWeight:500,color:C.sub,marginLeft:2}}>{m.unit}</span>
+            {windLoad&&<div className="card" style={{padding:40,textAlign:"center",color:C.sub,fontSize:14}}>Chargement…</div>}
+            {wind?.error&&<div className="card" style={{padding:16,color:C.alert,fontSize:13,borderLeft:`3px solid ${C.alert}`}}>{wind.error}</div>}
+            {wc&&!windLoad&&(<>
+              {kn!=null&&<div style={{background:kn>=14&&kn<=28?C.skyBg:kn>=6?C.greenBg:kn<6?"#f5f5f5":C.alertBg,borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:kn>=14&&kn<=28?C.ocean:kn>=6?C.green:kn<6?C.sub:C.alert,flexShrink:0}}/>
+                <span style={{fontWeight:600,fontSize:14,color:kn>=14&&kn<=28?C.ocean:kn>=6?C.green:kn<6?C.sub:C.alert}}>
+                  {kn>=14&&kn<=28?"Idéal kite / planche":kn>=6?"Bon pour le surf":kn<6?"Vent calme":"Vent fort — prudence"}
+                </span>
+                <span style={{marginLeft:"auto",fontWeight:700,fontSize:24,color:kn>=14&&kn<=28?C.ocean:kn>=6?C.green:kn<6?C.sub:C.alert}}>Bft {bft}</span>
+              </div>}
+              <div className="metric-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {[
+                  {label:"Vent moyen",val:`${kn}`,unit:"kn",sub:`${Math.round(wc.wind_speed_10m*3.6)} km/h`,color:C.ocean},
+                  {label:"Rafales",val:`${gustKn}`,unit:"kn",sub:`${Math.round(wc.wind_gusts_10m*3.6)} km/h`,color:C.sky},
+                  {label:"Direction",val:degToDir(dir),unit:"",sub:`${Math.round(dir)}°`,color:C.navy},
+                  {label:"Température",val:`${Math.round(wc.temperature_2m)}`,unit:"°C",sub:"",color:C.sun},
+                  {label:"Humidité",val:`${Math.round(wc.relative_humidity_2m)}`,unit:"%",sub:"",color:C.sky},
+                  {label:"Pression",val:`${Math.round(wc.pressure_msl)}`,unit:"",sub:"hPa",color:C.sub},
+                ].map((m,i)=>(
+                  <div key={i} className="card" style={{padding:"14px 12px 12px"}}>
+                    <div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>{m.label}</div>
+                    <div style={{fontSize:22,fontWeight:700,color:m.color,lineHeight:1,letterSpacing:"-.5px"}}>
+                      {m.val}<span style={{fontSize:12,fontWeight:500,color:C.sub,marginLeft:2}}>{m.unit}</span>
+                    </div>
+                    {m.sub&&<div style={{fontSize:11,color:C.sub,marginTop:3}}>{m.sub}</div>}
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+                  {Icon.wind(C.ocean,16)}<span style={{fontWeight:700,fontSize:13,color:C.navy}}>8 prochaines heures</span>
+                </div>
+                <div style={{padding:"4px 16px 12px"}}>
+                  {nextH.map((h,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<nextH.length-1?`1px solid ${C.border}`:"none"}}>
+                      <span style={{fontSize:12,color:C.sub,minWidth:30,fontWeight:600}}>{String(h.t.getHours()).padStart(2,"0")}h</span>
+                      <span style={{fontSize:14,fontWeight:700,color:C.ocean,minWidth:48}}>{h.spKn} kn</span>
+                      <span style={{fontSize:12,color:C.sub,minWidth:48}}>↑ {h.gKn}</span>
+                      <span style={{fontSize:11,color:C.sky,minWidth:34,fontWeight:600}}>{degToDir(h.dir)}</span>
+                      <div style={{flex:1,background:C.border,borderRadius:4,height:4}}>
+                        <div style={{height:4,borderRadius:4,background:C.ocean,width:`${Math.round((h.spKn/maxSpKn)*100)}%`}}/>
                       </div>
-                      {m.sub&&<div style={{fontSize:11,color:C.sub,marginTop:3}}>{m.sub}</div>}
                     </div>
                   ))}
                 </div>
-                <div className="card">
-                  <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
-                    {Icon.wind(C.ocean,16)}
-                    <span style={{fontWeight:700,fontSize:13,color:C.navy}}>8 prochaines heures</span>
-                  </div>
-                  <div style={{padding:"4px 16px 12px"}}>
-                    {nextH.map((h,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<nextH.length-1?`1px solid ${C.border}`:"none"}}>
-                        <span style={{fontSize:12,color:C.sub,minWidth:30,fontWeight:600}}>{String(h.t.getHours()).padStart(2,"0")}h</span>
-                        <span style={{fontSize:14,fontWeight:700,color:C.ocean,minWidth:48}}>{h.spKn} kn</span>
-                        <span style={{fontSize:12,color:C.sub,minWidth:48}}>↑ {h.gKn}</span>
-                        <span style={{fontSize:11,color:C.sky,minWidth:34,fontWeight:600}}>{degToDir(h.dir)}</span>
-                        <div style={{flex:1,background:C.border,borderRadius:4,height:4}}>
-                          <div style={{height:4,borderRadius:4,background:C.ocean,width:`${Math.round((h.spKn/maxSpKn)*100)}%`}}/>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{padding:"8px 16px",borderTop:`1px solid ${C.border}`,fontSize:11,color:C.sub,textAlign:"right"}}>
-                    Open-Meteo · {spot.name} · {timeStr}
-                  </div>
+                <div style={{padding:"8px 16px",borderTop:`1px solid ${C.border}`,fontSize:11,color:C.sub,textAlign:"right"}}>
+                  Open-Meteo · {spot.name} · {timeStr}
                 </div>
-              </>
-            )}
+              </div>
+            </>)}
           </div>
         )}
 
@@ -547,16 +646,13 @@ function App() {
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {tideLoad&&<div className="card" style={{padding:40,textAlign:"center",color:C.sub,fontSize:14}}>Chargement des marées…</div>}
             {tideError&&<div className="card" style={{padding:14,color:C.alert,fontSize:13,borderLeft:`3px solid ${C.alert}`}}>{tideError}</div>}
-            {!spot.tide&&!tideError&&<div className="card" style={{padding:14,color:C.sub,fontSize:13,borderLeft:`3px solid ${C.border}`}}>Pas de station marée disponible pour ce spot.</div>}
             {tidePoints&&!tideLoad&&(
               <div className="card">
                 <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{fontWeight:700,fontSize:15,color:C.navy}}>{spot.name}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{fontSize:11,color:C.sub,textTransform:"capitalize"}}>{today}</div>
-                    <button onClick={()=>loadTides(spot)} style={{background:"none",border:"none",padding:4,cursor:"pointer",display:"flex"}}>
-                      {Icon.refresh(C.sub,13)}
-                    </button>
+                    <button onClick={()=>loadTides(spot)} style={{background:"none",border:"none",padding:4,cursor:"pointer",display:"flex"}}>{Icon.refresh(C.sub,13)}</button>
                   </div>
                 </div>
                 {nowH!=null&&<div style={{padding:"12px 16px",background:C.skyBg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
@@ -566,11 +662,8 @@ function App() {
                 </div>}
                 <div style={{display:"flex",gap:10,padding:"14px 16px 10px",flexWrap:"wrap"}}>
                   {extrema.map((e,i)=>(
-                    <div key={i} style={{flex:"1 0 auto",minWidth:100,textAlign:"center",
-                      background:e.type==="PM"?C.skyBg:C.bg,borderRadius:14,padding:"16px 12px",border:`1px solid ${C.border}`}}>
-                      <div style={{fontSize:11,color:C.sub,textTransform:"uppercase",letterSpacing:".6px",fontWeight:600,marginBottom:6}}>
-                        {e.type==="PM"?"Pleine mer":"Basse mer"}
-                      </div>
+                    <div key={i} style={{flex:"1 0 auto",minWidth:100,textAlign:"center",background:e.type==="PM"?C.skyBg:C.bg,borderRadius:14,padding:"16px 12px",border:`1px solid ${C.border}`}}>
+                      <div style={{fontSize:11,color:C.sub,textTransform:"uppercase",letterSpacing:".6px",fontWeight:600,marginBottom:6}}>{e.type==="PM"?"Pleine mer":"Basse mer"}</div>
                       <div style={{fontSize:22,fontWeight:700,color:e.type==="PM"?C.ocean:C.navy,lineHeight:1,marginBottom:4}}>{fmtH(e.time)}</div>
                       <div style={{fontSize:15,fontWeight:600,color:C.sub}}>{e.height.toFixed(2)} m</div>
                       {e.type==="PM"&&coef&&<div style={{fontSize:12,color:coef>=95?C.alert:C.ocean,fontWeight:700,marginTop:6}}>Coef. {coef}</div>}
@@ -593,9 +686,7 @@ function App() {
                 </div>
               </div>
             )}
-            <div style={{fontSize:11,color:C.sub,textAlign:"center",padding:"4px 0 8px"}}>
-              Données SHOM · api-maree.fr · IFREMER CC-BY
-            </div>
+            <div style={{fontSize:11,color:C.sub,textAlign:"center",padding:"4px 0 8px"}}>Données SHOM · api-maree.fr · IFREMER CC-BY</div>
           </div>
         )}
 
@@ -605,29 +696,26 @@ function App() {
             <div className="card">
               <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {Icon.compass(C.sun,18)}
-                  <span style={{fontWeight:700,fontSize:14,color:C.navy}}>Carte vent ECMWF</span>
+                  {Icon.compass(C.sun,18)}<span style={{fontWeight:700,fontSize:14,color:C.navy}}>Carte vent ECMWF</span>
                 </div>
                 <a href={`https://www.windy.com/?${spot.lat},${spot.lon},11`} target="_blank" rel="noreferrer"
                   style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Plein écran</a>
               </div>
               <div style={{width:"100%",height:"min(75vw,62vh)"}}>
-                <iframe
-                  key={spot.id}
+                <iframe key={spot.id}
                   src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=10&overlay=wind&product=ecmwf&level=surface&lat=${spot.lat}&lon=${spot.lon}&detailLat=${spot.lat}&detailLon=${spot.lon}&detail=true&pressure=true&message=true`}
                   style={{width:"100%",height:"100%",border:"none",display:"block"}} allowFullScreen title="Windy"/>
               </div>
             </div>
             {spot.links?.length>0&&(
               <div className="card" style={{padding:16}}>
-                <div style={{fontWeight:700,fontSize:13,color:C.navy,marginBottom:10}}>Sites de prévision — {spot.name}</div>
+                <div style={{fontWeight:700,fontSize:13,color:C.navy,marginBottom:10}}>Prévisions — {spot.name}</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {spot.links.map((l,i)=>{
                     const col=[C.ocean,C.green,C.sky,C.navy,C.sun][i%5];
                     return(
                       <a key={i} href={l.u} target="_blank" rel="noreferrer"
-                        style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",borderRadius:14,
-                          background:C.bg,textDecoration:"none",border:`1px solid ${C.border}`}}>
+                        style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",borderRadius:14,background:C.bg,textDecoration:"none",border:`1px solid ${C.border}`}}>
                         <div style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}}/>
                         <span style={{fontWeight:600,fontSize:14,color:C.navy,flex:1}}>{l.n}</span>
                         {Icon.chevron(C.border,14)}
@@ -645,8 +733,7 @@ function App() {
         Open-Meteo · api-maree.fr IFREMER CC-BY · Windy
       </div>
 
-      {/* ── SPOT SELECTOR ── */}
-      {showSelector&&<SpotSelector selected={spot} onSelect={s=>{setSpot(s);}} onClose={()=>setShowSelector(false)}/>}
+      {showSelector&&<SpotSelector selected={spot} onSelect={s=>setSpot(s)} onClose={()=>setShowSelector(false)}/>}
     </div>
   );
 }
