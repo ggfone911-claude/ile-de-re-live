@@ -12,15 +12,14 @@
 html,body{background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:#0d2333;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 .card{background:#fff;border-radius:18px;box-shadow:0 2px 16px rgba(11,61,82,.08);overflow:hidden;}
 .fade{animation:fadeIn .3s ease;}
 input{outline:none;-webkit-appearance:none;border-radius:10px;}
 input::placeholder{color:#aac4d0;}
 ::-webkit-scrollbar{display:none;}
 button{-webkit-appearance:none;touch-action:manipulation;}
-@media (max-width:380px){
-  .metric-grid{grid-template-columns:repeat(2,1fr)!important;}
-}
+@media (max-width:380px){.metric-grid{grid-template-columns:repeat(2,1fr)!important;}}
 </style>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='38' fill='%230b3d52'/%3E%3Ccircle cx='132' cy='48' r='26' fill='%23f5a623'/%3E%3Cpath d='M-10 112 Q28 88 58 112 Q88 136 118 112 Q148 88 190 112L190 180H-10Z' fill='%231a7fa0' opacity='.6'/%3E%3Cpath d='M-10 128 Q32 104 62 128 Q92 152 128 128 Q158 104 190 128L190 180H-10Z' fill='%231a7fa0' opacity='.85'/%3E%3Cpath d='M-10 144 Q35 120 65 144 Q95 166 132 144 Q160 120 190 144L190 180H-10Z' fill='%23fff' opacity='.15'/%3E%3Cpath d='M-10 148 Q35 124 65 148 Q95 170 132 148 Q160 124 190 148L190 180H-10Z' fill='%230b3d52'/%3E%3C/svg%3E">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -31,92 +30,439 @@ button{-webkit-appearance:none;touch-action:manipulation;}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 /* ── PALETTE ── */
 const C = {
   navy:"#0b3d52", ocean:"#1a7fa0", sky:"#2aaccf", skyBg:"#e8f5fb",
   sun:"#f5a623", sunBg:"#fff8ed", alert:"#e05c3a", alertBg:"#fdf0ec",
   green:"#1db87a", greenBg:"#e8f8f2",
+  purple:"#7c5cbf", purpleBg:"#f0ebfb",
   text:"#0d2333", sub:"#5a7d8c", border:"#ddeaf0", bg:"#f0f4f8",
   white:"#ffffff", card:"#ffffff",
 };
 
-/* ── SVG ICONS ── */
-const Icon = {
-  wind: (color="#1a7fa0",s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>,
-  wave: (color="#1a7fa0",s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>,
-  car:  (color="#e05c3a",s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
-  surf: (color="#1db87a",s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/></svg>,
-  compass:(color="#f5a623",s=18)=> <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
-  arrowUp:(color,s=14)=> <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color||C.sub} strokeWidth="2.5" strokeLinecap="round"><path d="M12 19V5m-7 7 7-7 7 7"/></svg>,
-  chevron:(color,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color||C.sub} strokeWidth="2" strokeLinecap="round"><path d="m9 18 6-6-6-6"/></svg>,
-  refresh:(color,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color||C.ocean} strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+/* ── UTILS ── */
+const DIR16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+const degToDir=d=>DIR16[Math.round(d/22.5)%16];
+const toKn=ms=>Math.round(ms*1.94384);
+const toBft=kn=>kn<1?0:kn<4?1:kn<7?2:kn<11?3:kn<17?4:kn<22?5:kn<28?6:kn<34?7:kn<41?8:kn<48?9:kn<56?10:kn<64?11:12;
+
+/* ── STORMGLASS HELPERS ── */
+// Stormglass returns {source1: val, source2: val, ...} — pick best available value
+const sgVal=(obj)=>{
+  if(obj==null)return null;
+  // Priority: sg (aggregated) > noaa > icon > meteo > dwd > any
+  const prio=['sg','noaa','icon','meteo','dwd'];
+  for(const s of prio){if(obj[s]!=null&&!isNaN(obj[s]))return obj[s];}
+  const v=Object.values(obj).find(v=>v!=null&&!isNaN(v));
+  return v??null;
 };
 
-const SURF_LINKS = [
-  { color:C.ocean,  name:"Grenettes — Surf Forecast", sub:"Houle · Période · Vent · 16j",  url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Les-Grenettes/forecasts/latest/six_day" },
-  { color:C.green,  name:"Petit Bec — Surf Forecast", sub:"Portes-en-Ré · Haut niveau",    url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Petit-Bec/forecasts/latest/six_day" },
-  { color:C.sky,    name:"MagicSeaweed Île de Ré",    sub:"Surf report complet",            url:"https://www.magicseaweed.com/Ile-De-Re-Surf-Report/6584/" },
-  { color:C.navy,   name:"Windfinder Le Bois Plage",  sub:"Superforecast 1h · 3 jours",    url:"https://fr.windfinder.com/forecast/ile_de_re_le_bois_plage_en_re" },
-  { color:C.sun,    name:"Windguru Diamond Head",     sub:"Kite référence · multi-modèles", url:"https://www.windguru.cz/1589" },
-];
+// Cache Stormglass data for 3h to preserve the 10 req/day free quota
+const SG_CACHE_KEY='sg_cache_v1';
+const SG_TTL=3*60*60*1000; // 3 hours
+function loadSgCache(){
+  try{
+    const raw=localStorage.getItem(SG_CACHE_KEY);
+    if(!raw)return null;
+    const{ts,data}=JSON.parse(raw);
+    if(Date.now()-ts>SG_TTL)return null;
+    return{data,ts};
+  }catch{return null;}
+}
+function saveSgCache(data){
+  try{localStorage.setItem(SG_CACHE_KEY,JSON.stringify({ts:Date.now(),data}));}catch{}
+}
 
-/* ── TIDE CHART ── */
-function TideChart({ points }) {
-  const ref = useRef(null);
-  const [tooltip, setTooltip] = useState("");
-  const draw = useCallback(() => {
-    const canvas = ref.current;
-    if (!canvas || !points?.length) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.offsetWidth, H = 200;
-    canvas.width = W*dpr; canvas.height = H*dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr,dpr);
+// Build hourly Stormglass array → same shape as our Open-Meteo hourly helpers expect
+function parseSgHours(hours){
+  return hours.map(h=>({
+    time: h.time, // ISO string UTC
+    waveHeight:    sgVal(h.waveHeight),
+    wavePeriod:    sgVal(h.wavePeriod),
+    waveDirection: sgVal(h.waveDirection),
+    swellHeight:   sgVal(h.swellHeight),
+    swellPeriod:   sgVal(h.swellPeriod),
+    swellDirection:sgVal(h.swellDirection),
+    windWaveHeight:sgVal(h.windWaveHeight),
+  }));
+}
+
+// Get avg of a field from parsed SG hours for a local date+slot
+function getSgSlotAvg(sgHours, field, dateStr, h0, h1){
+  if(!sgHours?.length)return null;
+  const vals=[];
+  sgHours.forEach(h=>{
+    // SG times are UTC — convert to Paris local
+    const d=new Date(h.time);
+    const localDate=d.toLocaleDateString('en-CA',{timeZone:'Europe/Paris'});
+    const localHour=parseInt(d.toLocaleTimeString('fr-FR',{hour:'2-digit',timeZone:'Europe/Paris'}).replace(/\D.*/,''));
+    if(localDate===dateStr&&localHour>=h0&&localHour<h1){
+      const v=h[field];
+      if(v!=null&&!isNaN(v))vals.push(v);
+    }
+  });
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+
+// Open-Meteo returns times already in local format "2026-06-15T06:00"
+const isoDate=t=>t?t.substring(0,10):null;
+const isoHour=t=>t?parseInt(t.substring(11,13)):null;
+
+// Today/tomorrow date strings (local)
+const localDateStr=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;};
+const getTodayStr=()=>localDateStr(new Date());
+const getTomorrowStr=()=>{const d=new Date();d.setDate(d.getDate()+1);return localDateStr(d);};
+
+// For api-maree.fr (times have timezone offset → convert to Paris)
+const mareeLocalDate=iso=>{
+  try{return new Date(iso).toLocaleDateString('en-CA',{timeZone:'Europe/Paris'});}catch{return iso?iso.substring(0,10):null;}
+};
+const mareeLocalHour=iso=>{
+  try{
+    const s=new Date(iso).toLocaleTimeString('fr-FR',{hour:'2-digit',timeZone:'Europe/Paris'});
+    return parseInt(s.replace(/\D.*/,''));
+  }catch{return iso?parseInt(iso.substring(11,13)):null;}
+};
+
+/* ── SPORT ENGINE ── */
+// Grenettes faces WSW (247°) → offshore wind comes from ENE (~67°)
+function isOffshoreForSurf(windDir){
+  if(windDir==null)return false;
+  const offshoreCenter=67;
+  const diff=Math.abs(((windDir-offshoreCenter+540)%360)-180);
+  return diff<60;
+}
+
+function getSlotAvg(hourly,field,dateStr,h0,h1){
+  if(!hourly?.time)return null;
+  const vals=[];
+  hourly.time.forEach((t,i)=>{
+    if(isoDate(t)===dateStr&&isoHour(t)>=h0&&isoHour(t)<h1){
+      const v=hourly[field]?.[i];
+      if(v!=null&&!isNaN(v))vals.push(v);
+    }
+  });
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+
+function getSlotWindDir(hourly,dateStr,h0,h1){
+  if(!hourly?.time)return null;
+  let sx=0,cx=0,n=0;
+  hourly.time.forEach((t,i)=>{
+    if(isoDate(t)===dateStr&&isoHour(t)>=h0&&isoHour(t)<h1){
+      const d=hourly.wind_direction_10m?.[i];
+      if(d!=null){const r=d*Math.PI/180;sx+=Math.sin(r);cx+=Math.cos(r);n++;}
+    }
+  });
+  if(!n)return null;
+  return((Math.atan2(sx/n,cx/n)*180/Math.PI)+360)%360;
+}
+
+function getTideInfoAtSlot(tidePoints2d,dateStr,h0,h1){
+  if(!tidePoints2d?.length)return null;
+  const pts=tidePoints2d.filter(p=>{
+    const d=mareeLocalDate(p.time);
+    const h=mareeLocalHour(p.time);
+    return d===dateStr&&h>=h0&&h<h1;
+  });
+  if(!pts.length)return null;
+  const avg=pts.reduce((s,p)=>s+p.height,0)/pts.length;
+  const rising=pts.length>1&&pts[pts.length-1].height>pts[0].height;
+  // Check for extremum within ±1h of slot
+  let phase=rising?'montante':'descendante';
+  let phaseEmoji=rising?'↑':'↓'; // kept for compat but not displayed
+  for(let i=1;i<tidePoints2d.length-1;i++){
+    const p=tidePoints2d[i],pv=tidePoints2d[i-1],nx=tidePoints2d[i+1];
+    const pd=mareeLocalDate(p.time),ph=mareeLocalHour(p.time);
+    if(pd!==dateStr||ph<h0-1||ph>h1+1)continue;
+    if(p.height>pv.height&&p.height>nx.height){phase='pleine mer';phaseEmoji='▲';}
+    if(p.height<pv.height&&p.height<nx.height){phase='basse mer';phaseEmoji='▼';}
+  }
+  return{avg,rising,phase,phaseEmoji};
+}
+
+// surfQuality: 0-5 stars from wave height + period + wind conditions
+function surfQualityStars(swellH, swellP, windKn, windDir){
+  if(!swellH||swellH<0.3)return 0;
+  let score=0;
+  // Swell height (0-2 pts)
+  if(swellH>=1.5)score+=2;
+  else if(swellH>=0.8)score+=1.5;
+  else if(swellH>=0.5)score+=1;
+  else score+=0.5;
+  // Period (0-1.5 pts)
+  if((swellP||0)>=12)score+=1.5;
+  else if((swellP||0)>=9)score+=1;
+  else if((swellP||0)>=7)score+=0.5;
+  // Wind (0-1.5 pts)
+  if(windKn<4)score+=1.5;
+  else if(windKn<8&&isOffshoreForSurf(windDir))score+=1.5;
+  else if(windKn<8)score+=1;
+  else if(windKn<12&&isOffshoreForSurf(windDir))score+=0.5;
+  else if(windKn>=12)score-=1;
+  return Math.max(0,Math.min(5,Math.round(score)));
+}
+
+function starsLabel(n){return['Nul','Faible','Moyen','Bon','Très bon','Excellent'][n]||'?';}
+
+function computeReco(windKn,gustKn,windDir,swellH,swellP,waveH,tideInfo){
+  const wKn=windKn||0;
+  const gKn=gustKn||0;
+  const hasData=windKn!=null;
+
+  if(!hasData)return{sport:'?',color:C.sub,bg:'#f5f5f5',quality:'...',spot:'Chargement...',message:'Données en cours de chargement',secondary:null,stars:0};
+
+  // Too windy → danger
+  if(wKn>38)return{sport:'Danger',color:C.alert,bg:C.alertBg,quality:'Danger',spot:null,message:`Vent trop fort (${wKn} kn) — ne pas sortir en mer`,secondary:null,stars:0};
+
+  // Kite optimal: 18–38 kn
+  if(wKn>=18&&wKn<=38){
+    const q=wKn>=20&&wKn<=32&&(gKn<wKn*1.65)?'Excellent':'Bon';
+    // Diamond Head pour le kite fort, Rivedoux (plus proche) pour le wing ou vent léger
+    const spot=wKn>=24?'Diamond Head':'Rivedoux';
+    const wing=wKn<=30?' / Wing':'';
+    return{
+      sport:'Kite'+wing,color:C.sky,bg:C.skyBg,quality:q,
+      spot,secondary:spot==='Diamond Head'?'Rivedoux (3 km)':null,stars:null,
+      message:`Kite${wing} à ${spot} — ${wKn} kn ${windDir!=null?degToDir(windDir):''}${gKn>wKn+4?', rafales '+gKn+' kn':''}`,
+    };
+  }
+
+  // Wing: 11–20 kn
+  if(wKn>=11&&wKn<18){
+    const q=wKn>=13&&wKn<=18?'Bon':'Léger';
+    return{
+      sport:'Wing foil',color:C.ocean,bg:C.skyBg,quality:q,
+      spot:'Rivedoux',secondary:'Diamond Head',stars:null,
+      message:`Wing à Rivedoux — ${wKn} kn ${windDir!=null?degToDir(windDir):''}${gKn>wKn+4?', rafales '+gKn+' kn':''}`,
+    };
+  }
+
+  // Surf: vent < 11 kn + houle
+  const surfH=swellH||waveH; // use Stormglass swell or Open-Meteo wave as fallback
+  if(wKn<11&&surfH!=null&&surfH>=0.35){
+    const offshore=isOffshoreForSurf(windDir);
+    const bigSwell=surfH>=1.2;
+    const spot=bigSwell?'Petit Bec':'Les Grenettes';
+    const tideOk=!tideInfo||(tideInfo.avg>0.8&&tideInfo.avg<5.2);
+    const tideGood=!tideInfo||(tideInfo.avg>1.0&&tideInfo.avg<3.8&&(tideInfo.rising||tideInfo.phase==='montante'));
+    const stars=surfQualityStars(surfH,swellP,wKn,windDir);
+    const q=stars>=4?'Excellent':stars>=3?'Bon':stars>=2?'Moyen':'Faible';
+    const tideStr=tideInfo?` · marée ${tideInfo.phase} (${tideInfo.avg.toFixed(1)}m)`:'';
+    const windStr=offshore&&wKn>1?` · vent offshore ${wKn} kn`:wKn>1?` · vent ${wKn} kn`:'';
+    return{
+      sport:'Surf',color:C.green,bg:C.greenBg,quality:q,
+      spot,secondary:spot==='Petit Bec'?'Les Grenettes':null,stars,
+      message:`Surf à ${spot} — ${surfH.toFixed(1)}m${swellP?' / '+Math.round(swellP)+'s':''}${windStr}${tideStr}`,
+    };
+  }
+
+  // Paddle: calme
+  if(wKn<12){
+    const q=wKn<5?'Parfait':wKn<9?'Bon':'Moyen';
+    const tideStr=tideInfo?` · marée ${tideInfo.phase}`:'';
+    return{
+      sport:'Paddle',color:C.sun,bg:C.sunBg,quality:q,
+      spot:'Loix ou Anse des Baleines',secondary:null,stars:null,
+      message:`Mer calme — paddle ou baignade${tideStr} · vent ${wKn} kn`,
+    };
+  }
+
+  return{
+    sport:'Repos',color:C.sub,bg:'#f5f5f5',quality:'Nul',spot:null,stars:0,
+    message:`Vent (${wKn} kn) sans houle — pas de sport nautique idéal`,secondary:null,
+  };
+}
+
+/* ── SVG ICONS ── */
+const Ico={
+  wind:(c="#1a7fa0",s=22)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>,
+  wave:(c="#1a7fa0",s=22)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>,
+  car: (c="#e05c3a",s=22)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+  compass:(c="#f5a623",s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
+  refresh:(c,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.ocean} strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+  chevron:(c,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round"><path d="m9 18 6-6-6-6"/></svg>,
+  sport:(c="#0b3d52",s=22)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>,
+  map:(c="#0b3d52",s=22)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z"/><path d="M9 4v13M15 7v13"/></svg>,
+  windChip:(c,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.ocean} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>,
+  waveChip:(c,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.green} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0 3 2 4.5 0"/></svg>,
+  tide:(c,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.navy} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/><path d="M12 7l-3 3h6l-3-3z"/></svg>,
+  kite:(c,s=20)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.sky} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 17 Q3 4 12 3 Q21 4 21.5 17"/><path d="M2.5 17 Q12 12.5 21.5 17"/><line x1="7" y1="16.5" x2="9.5" y2="22"/><line x1="17" y1="16.5" x2="14.5" y2="22"/><line x1="8.5" y1="22" x2="15.5" y2="22"/></svg>,
+  surf:(c,s=20)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.green} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1.5 C14.5 2.5 16 6 16 12.5 C16 18.5 14.5 21.5 12 22.5 C9.5 21.5 8 18.5 8 12.5 C8 6 9.5 2.5 12 1.5 Z"/><path d="M12 21 C11.2 22.5 9.5 23.5 9 23.2"/></svg>,
+  paddle:(c,s=20)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.sun} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="3.5" x2="12" y2="17"/><path d="M9 5 Q12 3 15 5"/><path d="M8.5 15 L8 18.5 Q9 22 12 22.5 Q15 22 16 18.5 L15.5 15"/><path d="M8.5 15 Q12 13.5 15.5 15"/></svg>,
+  sun:(c,s=20)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.sun} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+  moon:(c,s=20)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||C.navy} strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+};
+
+/* ── SPORT BADGE ── */
+function SportBadge({sport,color,size='sm'}){
+  const p=size==='lg'?'5px 14px':'3px 10px';
+  const fs=size==='lg'?13:10;
+  return(
+    <span style={{
+      display:'inline-block',padding:p,
+      background:color,color:'#fff',
+      borderRadius:20,fontSize:fs,fontWeight:800,
+      letterSpacing:'.8px',textTransform:'uppercase',
+      lineHeight:1.3,
+    }}>{sport}</span>
+  );
+}
+
+/* ── SPORT ICON ── */
+function SportIcon({sport,color,size=28}){
+  const s=sport?.toLowerCase()||'';
+  const c=color||C.sub;
+  const p={width:size,height:size,viewBox:"0 0 24 24",fill:"none",stroke:c,strokeWidth:"1.5",strokeLinecap:"round",strokeLinejoin:"round"};
+
+  /* ──────────────────────────────────────────────
+     SURF classique — shortboard vue de profil
+     Forme longboard/shortboard avec dérive centrale
+  ────────────────────────────────────────────── */
+  if(s.includes('surf'))return(
+    <svg {...p}>
+      {/* Corps de la planche — pointe en haut, pin tail en bas */}
+      <path d="M12 1.5 C14.5 2.5 16 6 16 12.5 C16 18.5 14.5 21.5 12 22.5 C9.5 21.5 8 18.5 8 12.5 C8 6 9.5 2.5 12 1.5 Z"/>
+      {/* Dérive centrale (single fin) */}
+      <path d="M12 21 C11.2 22.5 9.5 23.5 9 23.2"/>
+      {/* Ligne centrale de stringer (très subtile) */}
+      <line x1="12" y1="4" x2="12" y2="21" strokeOpacity=".18"/>
+    </svg>
+  );
+
+  /* ──────────────────────────────────────────────
+     KITE — aile bow-kite gonflée vue de face
+     + barre de contrôle avec lignes de bride
+  ────────────────────────────────────────────── */
+  if(s.includes('kite'))return(
+    <svg {...p}>
+      {/* Bord d'attaque — arc principal du kite */}
+      <path d="M2.5 17 Q3 4 12 3 Q21 4 21.5 17"/>
+      {/* Panneau inférieur — ventre du kite */}
+      <path d="M2.5 17 Q12 12.5 21.5 17"/>
+      {/* Winglets aux extrémités */}
+      <path d="M2.5 17 Q1.5 14 3 13"/>
+      <path d="M21.5 17 Q22.5 14 21 13"/>
+      {/* Lignes de bride vers la barre */}
+      <line x1="7" y1="16.5" x2="9.5" y2="22"/>
+      <line x1="17" y1="16.5" x2="14.5" y2="22"/>
+      {/* Barre de contrôle */}
+      <line x1="8.5" y1="22" x2="15.5" y2="22"/>
+    </svg>
+  );
+
+  /* ──────────────────────────────────────────────
+     WING FOIL — aile portative delta vue de face
+     Profil d'aile avec manche central
+  ────────────────────────────────────────────── */
+  if(s.includes('wing'))return(
+    <svg {...p}>
+      {/* Bord d'attaque — arc de l'aile */}
+      <path d="M2 16 Q4 5 12 4.5 Q20 5 22 16"/>
+      {/* Extrados (face inférieure) */}
+      <path d="M2 16 Q12 19 22 16"/>
+      {/* Boom central avec poignées */}
+      <line x1="12" y1="4.5" x2="12" y2="19.5"/>
+      {/* Poignées */}
+      <line x1="10" y1="10" x2="14" y2="10"/>
+      <line x1="10" y1="14" x2="14" y2="14"/>
+      {/* Nervures secondaires */}
+      <line x1="2" y1="16" x2="5.5" y2="12" strokeOpacity=".4"/>
+      <line x1="22" y1="16" x2="18.5" y2="12" strokeOpacity=".4"/>
+    </svg>
+  );
+
+  /* ──────────────────────────────────────────────
+     PADDLE SUP — pagaie vue de face
+     Manche droit + grip en T + pelle arrondie
+  ────────────────────────────────────────────── */
+  if(s.includes('paddle'))return(
+    <svg {...p}>
+      {/* Manche */}
+      <line x1="12" y1="3.5" x2="12" y2="17"/>
+      {/* Grip en T (ergonomique, légèrement courbé) */}
+      <path d="M9 5 Q12 3 15 5"/>
+      {/* Pelle — forme classique pagaie SUP */}
+      <path d="M8.5 15 L8 18.5 Q9 22 12 22.5 Q15 22 16 18.5 L15.5 15"/>
+      {/* Base de la pelle (jonction manche/pelle) */}
+      <path d="M8.5 15 Q12 13.5 15.5 15"/>
+    </svg>
+  );
+
+  /* DANGER */
+  if(s.includes('danger'))return(
+    <svg {...p} stroke={C.alert}>
+      <path d="M12 2.5 L22 20.5 H2 Z"/>
+      <line x1="12" y1="9" x2="12" y2="14.5"/>
+      <circle cx="12" cy="17.5" r=".9" fill={C.alert} stroke="none"/>
+    </svg>
+  );
+
+  /* REPOS */
+  return(
+    <svg {...p} stroke={C.sub}>
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="9" y1="12" x2="15" y2="12" strokeOpacity=".5"/>
+    </svg>
+  );
+}
+
+/* ── TIDE CHART (unchanged) ── */
+function TideChart({points}){
+  const ref=useRef(null);
+  const [tip,setTip]=useState("");
+  const draw=useCallback(()=>{
+    const canvas=ref.current;
+    if(!canvas||!points?.length)return;
+    const dpr=window.devicePixelRatio||1;
+    const W=canvas.offsetWidth,H=200;
+    canvas.width=W*dpr;canvas.height=H*dpr;
+    const ctx=canvas.getContext("2d");ctx.scale(dpr,dpr);
     const pad={t:16,r:12,b:28,l:44};
-    const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+    const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
     const hMax=Math.max(...points.map(p=>p.height))+0.3;
     const tFirst=new Date(points[0].time).getTime();
     const tSpan=new Date(points[points.length-1].time).getTime()-tFirst;
     const xP=t=>pad.l+(new Date(t).getTime()-tFirst)/tSpan*cw;
     const yP=h=>pad.t+ch-(h/hMax)*ch;
-    ctx.fillStyle="#f8fbfd"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#f8fbfd";ctx.fillRect(0,0,W,H);
     const step=hMax>5?1:0.5;
     for(let h=0;h<=hMax;h+=step){
       const y=yP(h);
-      ctx.strokeStyle="rgba(11,61,82,.06)"; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
-      ctx.fillStyle=C.sub; ctx.font="10px system-ui"; ctx.textAlign="right";
+      ctx.strokeStyle="rgba(11,61,82,.06)";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+      ctx.fillStyle=C.sub;ctx.font="10px system-ui";ctx.textAlign="right";
       ctx.fillText(h.toFixed(h<1?1:0)+"m",pad.l-5,y+4);
     }
     for(let hh=0;hh<=24;hh+=3){
       const x=pad.l+(hh/24)*cw;
-      ctx.strokeStyle="rgba(11,61,82,.04)"; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,H-pad.b); ctx.stroke();
-      ctx.fillStyle=C.sub; ctx.textAlign="center"; ctx.font="10px system-ui";
+      ctx.strokeStyle="rgba(11,61,82,.04)";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,H-pad.b);ctx.stroke();
+      ctx.fillStyle=C.sub;ctx.textAlign="center";ctx.font="10px system-ui";
       ctx.fillText(String(hh).padStart(2,"0")+"h",x,H-pad.b+14);
     }
     const fill=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
-    fill.addColorStop(0,"rgba(26,127,160,.18)"); fill.addColorStop(1,"rgba(26,127,160,.02)");
-    ctx.fillStyle=fill; ctx.beginPath();
+    fill.addColorStop(0,"rgba(26,127,160,.18)");fill.addColorStop(1,"rgba(26,127,160,.02)");
+    ctx.fillStyle=fill;ctx.beginPath();
     ctx.moveTo(xP(points[0].time),H-pad.b);
     points.forEach(p=>ctx.lineTo(xP(p.time),yP(p.height)));
-    ctx.lineTo(xP(points[points.length-1].time),H-pad.b); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle=C.ocean; ctx.lineWidth=2.5; ctx.lineJoin="round"; ctx.beginPath();
+    ctx.lineTo(xP(points[points.length-1].time),H-pad.b);ctx.closePath();ctx.fill();
+    ctx.strokeStyle=C.ocean;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.beginPath();
     points.forEach((p,i)=>i===0?ctx.moveTo(xP(p.time),yP(p.height)):ctx.lineTo(xP(p.time),yP(p.height)));
     ctx.stroke();
     for(let i=1;i<points.length-1;i++){
       const p=points[i],pv=points[i-1],nx=points[i+1];
       const isPM=p.height>pv.height&&p.height>nx.height;
       const isBM=p.height<pv.height&&p.height<nx.height;
-      if(!isPM&&!isBM) continue;
+      if(!isPM&&!isBM)continue;
       const x=xP(p.time),y=yP(p.height),col=isPM?C.navy:C.sky;
-      ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.stroke();
-      ctx.fillStyle=col; ctx.textAlign="center"; ctx.font="bold 10px system-ui";
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.font="bold 10px system-ui";
       ctx.fillText(p.height.toFixed(2)+"m",x,y+(isPM?-12:18));
-      ctx.font="9px system-ui"; ctx.fillStyle=C.sub;
+      ctx.font="9px system-ui";ctx.fillStyle=C.sub;
       ctx.fillText(new Date(p.time).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"}),x,y+(isPM?-22:28));
     }
     const nowMs=Date.now();
@@ -124,128 +470,637 @@ function TideChart({ points }) {
       const frac=(nowMs-tFirst)/tSpan;
       const hNow=points[Math.min(Math.round(frac*(points.length-1)),points.length-1)]?.height??0;
       const xNow=pad.l+frac*cw,yNow=yP(hNow);
-      ctx.strokeStyle=C.alert; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
-      ctx.beginPath(); ctx.moveTo(xNow,pad.t); ctx.lineTo(xNow,H-pad.b); ctx.stroke();
+      ctx.strokeStyle=C.alert;ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.moveTo(xNow,pad.t);ctx.lineTo(xNow,H-pad.b);ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle=C.alert; ctx.beginPath(); ctx.arc(xNow,yNow,5,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(xNow,yNow,5,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle=C.alert;ctx.beginPath();ctx.arc(xNow,yNow,5,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(xNow,yNow,5,0,Math.PI*2);ctx.stroke();
     }
   },[points]);
   useEffect(()=>{draw();},[draw]);
   useEffect(()=>{const ro=new ResizeObserver(draw);if(ref.current)ro.observe(ref.current);return()=>ro.disconnect();},[draw]);
-  const handleMove=(e)=>{
-    if(!ref.current||!points?.length) return;
+  const handleMove=e=>{
+    if(!ref.current||!points?.length)return;
     const rect=ref.current.getBoundingClientRect();
     const mx=(e.touches?.[0]?.clientX??e.clientX)-rect.left;
     const frac=Math.max(0,Math.min(1,(mx-44)/(rect.width-56)));
     const p=points[Math.round(frac*(points.length-1))];
-    if(!p) return;
-    setTooltip(`${new Date(p.time).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"})} — ${p.height.toFixed(2)} m`);
+    if(!p)return;
+    setTip(`${new Date(p.time).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"})} — ${p.height.toFixed(2)} m`);
   };
-  return(<div><canvas ref={ref} style={{width:"100%",height:200,display:"block",borderRadius:12,cursor:"crosshair"}} onMouseMove={handleMove} onTouchMove={handleMove} onMouseLeave={()=>setTooltip("")} onTouchEnd={()=>setTooltip("")}/><div style={{textAlign:"center",fontSize:12,marginTop:6,minHeight:16,color:tooltip?C.ocean:C.sub,fontWeight:tooltip?600:400,transition:"color .15s"}}>{tooltip||"Glissez pour voir la hauteur"}</div></div>);
+  return(<div><canvas ref={ref} style={{width:"100%",height:200,display:"block",borderRadius:12,cursor:"crosshair"}} onMouseMove={handleMove} onTouchMove={handleMove} onMouseLeave={()=>setTip("")} onTouchEnd={()=>setTip("")}/><div style={{textAlign:"center",fontSize:12,marginTop:6,minHeight:16,color:tip?C.ocean:C.sub,fontWeight:tip?600:400,transition:"color .15s"}}>{tip||"Glissez pour voir la hauteur"}</div></div>);
 }
 
+/* ── FORECAST GRID (3 jours, créneaux 3h) ── */
+function WindArrow({deg, size=22}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{transform:`rotate(${deg}deg)`,display:'block',margin:'0 auto'}}>
+      <path d="M12 4 L12 20 M7 9 L12 4 L17 9" stroke={C.ocean} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function ForecastGrid({wind, marine, sgHours}){
+  const SLOTS=[0,3,6,9,12,15,18,21];
+  const days=[0,1,2].map(offset=>{
+    const d=new Date(); d.setDate(d.getDate()+offset);
+    return{offset, date:d, dateStr:localDateStr(d)};
+  });
+
+  const nowH=new Date().getHours();
+  const todayStr=getTodayStr();
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:0}}>
+      {days.map(({offset,date,dateStr})=>{
+        const dayLabel=offset===0?"Aujourd'hui":offset===1?"Demain":date.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
+        const slots=SLOTS.map(h=>{
+          const wRaw=getSlotAvg(wind?.hourly,'wind_speed_10m',dateStr,h,h+3);
+          const gRaw=getSlotAvg(wind?.hourly,'wind_gusts_10m',dateStr,h,h+3);
+          const wKn=wRaw!=null?Math.round(toKn(wRaw)):null;
+          const gKn=gRaw!=null?Math.round(toKn(gRaw)):null;
+          const wDir=getSlotWindDir(wind?.hourly,dateStr,h,h+3);
+          const swH=getSgSlotAvg(sgHours,'swellHeight',dateStr,h,h+3)??getSlotAvg(marine?.hourly,'swell_wave_height',dateStr,h,h+3);
+          const swP=getSgSlotAvg(sgHours,'swellPeriod',dateStr,h,h+3)??getSlotAvg(marine?.hourly,'swell_wave_period',dateStr,h,h+3);
+          const reco=wKn!=null?computeReco(wKn,gKn,wDir,swH,swP,null,null):null;
+          const isNow=dateStr===todayStr&&nowH>=h&&nowH<h+3;
+          return{h,wKn,gKn,wDir,swH,swP,reco,isNow};
+        }).filter(s=>s.wKn!=null);
+        if(!slots.length)return null;
+        return(
+          <div key={offset} style={{borderBottom:`1px solid ${C.border}`}}>
+            {/* Day header */}
+            <div style={{padding:'9px 16px',background:C.bg,display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:12,fontWeight:700,color:C.navy,textTransform:'capitalize'}}>{dayLabel}</span>
+              {offset===0&&<span style={{fontSize:10,background:C.ocean,color:C.white,borderRadius:10,padding:'2px 8px',fontWeight:700}}>Live</span>}
+            </div>
+            {/* Slot columns */}
+            <div style={{display:'flex',overflowX:'auto',scrollbarWidth:'none'}}>
+              {slots.map((s,i)=>(
+                <div key={i} style={{
+                  minWidth:68,flex:'0 0 68px',padding:'10px 4px 12px',textAlign:'center',
+                  borderRight:`1px solid ${C.border}`,
+                  background:s.isNow?C.skyBg:s.reco?s.reco.bg+'33':C.white,
+                  position:'relative',
+                }}>
+                  {s.isNow&&<div style={{position:'absolute',top:0,left:0,right:0,height:2,background:C.ocean,borderRadius:2}}/>}
+                  {/* Heure */}
+                  <div style={{fontSize:11,fontWeight:700,color:s.isNow?C.ocean:C.sub,marginBottom:6}}>
+                    {String(s.h).padStart(2,'0')}h
+                  </div>
+                  {/* Direction */}
+                  {s.wDir!=null&&<div style={{marginBottom:5}}><WindArrow deg={s.wDir} size={20}/></div>}
+                  {/* Vent */}
+                  <div style={{fontSize:13,fontWeight:800,color:s.wKn>=18?C.sky:s.wKn>=11?C.ocean:C.green,lineHeight:1}}>
+                    {s.wKn}<span style={{fontSize:9,fontWeight:500,color:C.sub}}>kn</span>
+                  </div>
+                  {/* Rafales */}
+                  {s.gKn!=null&&s.gKn>s.wKn+4&&(
+                    <div style={{fontSize:9,color:C.sub,marginTop:2}}>↑{s.gKn}</div>
+                  )}
+                  {/* Houle */}
+                  {s.swH!=null&&(
+                    <div style={{fontSize:11,fontWeight:700,color:C.green,marginTop:6}}>
+                      {s.swH.toFixed(1)}<span style={{fontSize:9,fontWeight:400,color:C.sub}}>m</span>
+                    </div>
+                  )}
+                  {s.swP!=null&&(
+                    <div style={{fontSize:9,color:C.sub}}>{Math.round(s.swP)}s</div>
+                  )}
+                  {/* Sport badge */}
+                  {s.reco&&s.reco.sport!=='Repos'&&s.reco.sport!=='?'&&(
+                    <div style={{marginTop:6}}><SportBadge sport={s.reco.sport.split('/')[0].trim()} color={s.reco.color}/></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {/* Légende */}
+      <div style={{padding:'10px 16px',display:'flex',gap:8,flexWrap:'wrap',background:C.bg,alignItems:'center'}}>
+        {[['Kite',C.sky],['Surf',C.green],['Paddle',C.sun],['Wing foil',C.ocean]].map(([s,c])=>(
+          <SportBadge key={s} sport={s} color={c}/>
+        ))}
+        <span style={{fontSize:10,color:C.sub,marginLeft:4}}>par créneau 3h</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── STARS DISPLAY ── */
+function Stars({n,color}){
+  if(n==null)return null;
+  return(
+    <span style={{letterSpacing:1,fontSize:14}}>
+      {[1,2,3,4,5].map(i=>(
+        <span key={i} style={{color:i<=n?color:'#ddeaf0'}}>★</span>
+      ))}
+    </span>
+  );
+}
+
+/* ── SLOT CARD ── */
+function SlotCard({label,h0,h1,wind,marine,sgHours,tidePoints2d,dateStr,isNow}){
+  const wKn=useMemo(()=>{
+    const v=getSlotAvg(wind?.hourly,'wind_speed_10m',dateStr,h0,h1);
+    return v!=null?Math.round(toKn(v)):null;
+  },[wind,dateStr,h0,h1]);
+  const gKn=useMemo(()=>{
+    const v=getSlotAvg(wind?.hourly,'wind_gusts_10m',dateStr,h0,h1);
+    return v!=null?Math.round(toKn(v)):null;
+  },[wind,dateStr,h0,h1]);
+  const wDir=useMemo(()=>getSlotWindDir(wind?.hourly,dateStr,h0,h1),[wind,dateStr,h0,h1]);
+  // Stormglass swell (priority) or Open-Meteo fallback
+  const swH=useMemo(()=>getSgSlotAvg(sgHours,'swellHeight',dateStr,h0,h1)??getSlotAvg(marine?.hourly,'swell_wave_height',dateStr,h0,h1),[sgHours,marine,dateStr,h0,h1]);
+  const swP=useMemo(()=>getSgSlotAvg(sgHours,'swellPeriod',dateStr,h0,h1)??getSlotAvg(marine?.hourly,'swell_wave_period',dateStr,h0,h1),[sgHours,marine,dateStr,h0,h1]);
+  const wvH=useMemo(()=>getSgSlotAvg(sgHours,'waveHeight',dateStr,h0,h1)??getSlotAvg(marine?.hourly,'wave_height',dateStr,h0,h1),[sgHours,marine,dateStr,h0,h1]);
+  const tide=useMemo(()=>getTideInfoAtSlot(tidePoints2d,dateStr,h0,h1),[tidePoints2d,dateStr,h0,h1]);
+  const reco=useMemo(()=>computeReco(wKn,gKn,wDir,swH,swP,wvH,tide),[wKn,gKn,wDir,swH,swP,wvH,tide]);
+
+  const qualityColors={
+    'Excellent':{bg:'#e8f8f2',text:C.green},
+    'Parfait':  {bg:'#e8f8f2',text:C.green},
+    'Bon':      {bg:C.skyBg, text:C.ocean},
+    'Léger':    {bg:C.sunBg, text:C.sun},
+    'Moyen':    {bg:C.sunBg, text:C.sun},
+    'Nul':      {bg:'#f5f5f5',text:C.sub},
+    'Danger':   {bg:C.alertBg,text:C.alert},
+    '...':      {bg:'#f5f5f5',text:C.sub},
+  };
+  const qColor=qualityColors[reco.quality]||{bg:'#f5f5f5',text:C.sub};
+
+  return(
+    <div className="card" style={{overflow:'hidden',border:isNow?`2px solid ${C.ocean}`:'none'}}>
+      {/* Header */}
+      <div style={{padding:'11px 16px',background:isNow?C.skyBg:'#fafcfe',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:7}}>
+          <span style={{fontSize:13,fontWeight:700,color:C.navy}}>{label}</span>
+          <span style={{fontSize:11,color:C.sub}}>{h0}h – {h1}h</span>
+          {isNow&&<span style={{fontSize:9,fontWeight:800,color:C.ocean,background:C.skyBg,border:`1px solid ${C.sky}`,borderRadius:10,padding:'2px 7px',letterSpacing:'.4px'}}>EN COURS</span>}
+        </div>
+        <span style={{fontSize:10,fontWeight:700,letterSpacing:'.4px',color:qColor.text,background:qColor.bg,borderRadius:12,padding:'3px 9px'}}>
+          {reco.quality}
+        </span>
+      </div>
+
+      {/* Main reco */}
+      <div style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:14,borderBottom:`1px solid ${C.border}`,background:reco.bg+'55'}}>
+        <div style={{flexShrink:0,opacity:.85}}><SportIcon sport={reco.sport} color={reco.color} size={32}/></div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{marginBottom:5}}><SportBadge sport={reco.sport} color={reco.color} size='lg'/></div>
+          {reco.stars!=null&&<div style={{marginTop:4}}><Stars n={reco.stars} color={reco.color}/><span style={{fontSize:11,color:C.sub,marginLeft:6}}>{starsLabel(reco.stars)}</span></div>}
+          {reco.spot&&<div style={{fontSize:14,fontWeight:600,color:C.navy,marginTop:4}}>{reco.spot}</div>}
+          {reco.secondary&&<div style={{fontSize:11,color:C.sub,marginTop:2}}>ou {reco.secondary}</div>}
+        </div>
+      </div>
+
+      {/* Conditions chips */}
+      {(wKn!=null||swH!=null||tide)&&(
+        <div style={{padding:'9px 16px',display:'flex',gap:6,flexWrap:'wrap',borderBottom:`1px solid ${C.border}`,background:C.white}}>
+          {wKn!=null&&(
+            <span style={{fontSize:12,color:C.ocean,background:C.skyBg,borderRadius:12,padding:'4px 10px',fontWeight:600,display:'flex',alignItems:'center',gap:5}}>
+              {Ico.windChip(C.ocean,13)}
+              {wKn} kn{wDir!=null?' '+degToDir(wDir):''}
+            </span>
+          )}
+          {gKn!=null&&gKn>wKn+4&&(
+            <span style={{fontSize:12,color:C.sky,background:C.skyBg,borderRadius:12,padding:'4px 10px',fontWeight:600}}>
+              rafales {gKn} kn
+            </span>
+          )}
+          {swH!=null&&(
+            <span style={{fontSize:12,color:C.green,background:C.greenBg,borderRadius:12,padding:'4px 10px',fontWeight:600,display:'flex',alignItems:'center',gap:5}}>
+              {Ico.waveChip(C.green,13)}
+              {swH.toFixed(1)}m{swP?' / '+Math.round(swP)+'s':''}
+            </span>
+          )}
+          {tide&&(
+            <span style={{fontSize:12,color:C.navy,background:C.bg,borderRadius:12,padding:'4px 10px',fontWeight:600,display:'flex',alignItems:'center',gap:5}}>
+              {tide.rising?'↑':'↓'} marée {tide.avg.toFixed(1)}m
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Message */}
+      <div style={{padding:'10px 16px',fontSize:13,color:C.text,lineHeight:1.55,background:C.white}}>
+        {reco.message}
+      </div>
+    </div>
+  );
+}
+
+/* ── QUOI FAIRE TAB ── */
+function QuoiFaire({wind,marine,tidePoints2d,windLoad,marineLoad}){
+  const [day,setDay]=useState('today');
+  const todayStr=getTodayStr();
+  const tomorrowStr=getTomorrowStr();
+  const dateStr=day==='today'?todayStr:tomorrowStr;
+
+  const now=new Date();
+  const nowH=now.getHours();
+
+  // Stormglass state
+  const [sgKey,setSgKey]=useState(()=>{try{return localStorage.getItem('sg_api_key')||'4994e8d0-6899-11f1-9b33-0242ac120004-4994e97a-6899-11f1-9b33-0242ac120004';}catch{return '4994e8d0-6899-11f1-9b33-0242ac120004-4994e97a-6899-11f1-9b33-0242ac120004';}});
+  const [sgInput,setSgInput]=useState('');
+  const [sgHours,setSgHours]=useState(()=>{const c=loadSgCache();return c?parseSgHours(c.data.hours):null;});
+  const [sgLoad,setSgLoad]=useState(false);
+  const [sgError,setSgError]=useState('');
+  const [sgCacheTime,setSgCacheTime]=useState(()=>{const c=loadSgCache();return c?c.ts:null;});
+  const [showSgSetup,setShowSgSetup]=useState(false);
+
+  const fetchStormglass=useCallback(async(key)=>{
+    const k=(key??sgKey).trim();
+    if(!k)return;
+    setSgLoad(true);setSgError('');
+    try{
+      const now=Math.round(Date.now()/1000);
+      const end=now+3*86400;
+      const params='waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,windWaveHeight';
+      const url=`https://api.stormglass.io/v2/weather/point?lat=46.18&lng=-1.43&params=${params}&start=${now}&end=${end}&source=sg,noaa,icon`;
+      const r=await fetch(url,{headers:{Authorization:k}});
+      if(r.status===401||r.status===403)throw new Error('Clé Stormglass invalide');
+      if(r.status===429)throw new Error('Quota journalier atteint (10 req/jour gratuit)');
+      if(!r.ok)throw new Error(`Erreur ${r.status}`);
+      const d=await r.json();
+      if(!d.hours?.length)throw new Error('Pas de données');
+      saveSgCache(d);
+      try{localStorage.setItem('sg_api_key',k);}catch{}
+      setSgKey(k);
+      setSgHours(parseSgHours(d.hours));
+      setSgCacheTime(Date.now());
+      setShowSgSetup(false);
+    }catch(e){setSgError(e.message);}
+    finally{setSgLoad(false);}
+  },[sgKey]);
+
+  // Auto-load: use cache if fresh, otherwise fetch
+  useEffect(()=>{
+    const c=loadSgCache();
+    if(c){
+      setSgHours(parseSgHours(c.data.hours));
+      setSgCacheTime(c.ts);
+    } else {
+      const key='4994e8d0-6899-11f1-9b33-0242ac120004-4994e97a-6899-11f1-9b33-0242ac120004';
+      fetchStormglass(key);
+    }
+  },[]);
+
+  // Current conditions
+  const wc=wind?.current;
+  const curKn=wc?toKn(wc.wind_speed_10m):null;
+  const curGust=wc?toKn(wc.wind_gusts_10m):null;
+  const curDir=wc?.wind_direction_10m;
+
+  // Current swell: Stormglass priority, then Open-Meteo
+  const curSwell=useMemo(()=>{
+    if(sgHours?.length){
+      const td=getTodayStr();
+      const hr=sgHours.find(h=>{
+        const d=new Date(h.time);
+        const ld=d.toLocaleDateString('en-CA',{timeZone:'Europe/Paris'});
+        const lh=parseInt(d.toLocaleTimeString('fr-FR',{hour:'2-digit',timeZone:'Europe/Paris'}).replace(/\D.*/,''));
+        return ld===td&&lh===nowH;
+      });
+      if(hr&&hr.swellHeight!=null)return{h:hr.swellHeight,p:hr.swellPeriod,src:'Stormglass'};
+    }
+    if(!marine?.hourly?.time)return null;
+    const td=getTodayStr();
+    const idx=marine.hourly.time.findIndex(t=>isoDate(t)===td&&isoHour(t)===nowH);
+    if(idx===-1)return null;
+    return{h:marine.hourly.swell_wave_height?.[idx],p:marine.hourly.swell_wave_period?.[idx],src:'Open-Meteo'};
+  },[sgHours,marine,nowH]);
+
+  const sgCacheAge=sgCacheTime?Math.round((Date.now()-sgCacheTime)/60000):null;
+
+  const SLOTS=[
+    {id:'matin',label:'Matin',h0:6,h1:12},
+    {id:'aprem',label:'Après-midi',h0:12,h1:18},
+    {id:'soir',label:'Soir',h0:18,h1:22},
+  ];
+
+  const isLoading=windLoad||marineLoad;
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+
+      {/* Current conditions bar */}
+      <div className="card" style={{padding:'14px 16px'}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.sub,textTransform:'uppercase',letterSpacing:'.7px',marginBottom:10}}>
+          Conditions maintenant
+        </div>
+        {isLoading&&!wc?(
+          <div style={{fontSize:13,color:C.sub}}>Chargement des données...</div>
+        ):(
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+            {curKn!=null&&(
+              <div style={{display:'flex',alignItems:'center',gap:6,background:curKn>=12?C.skyBg:curKn<6?C.greenBg:C.sunBg,borderRadius:20,padding:'6px 12px'}}>
+                <span style={{fontSize:13,fontWeight:700,color:curKn>=12?C.ocean:curKn<6?C.green:C.sun,display:'flex',alignItems:'center',gap:5}}>
+                  {Ico.windChip(curKn>=12?C.ocean:curKn<6?C.green:C.sun,13)}
+                  {curKn} kn
+                </span>
+                {curDir!=null&&<span style={{fontSize:12,color:C.sub,fontWeight:600}}>{degToDir(curDir)}</span>}
+                {curGust&&curGust>curKn+4&&<span style={{fontSize:11,color:C.sub}}>(↑{curGust})</span>}
+              </div>
+            )}
+            {curSwell?.h!=null&&(
+              <div style={{display:'flex',alignItems:'center',gap:6,background:C.greenBg,borderRadius:20,padding:'6px 12px'}}>
+                <span style={{fontSize:13,fontWeight:700,color:C.green,display:'flex',alignItems:'center',gap:5}}>
+                  {Ico.waveChip(C.green,13)}
+                  {curSwell.h.toFixed(1)}m{curSwell.p?' / '+Math.round(curSwell.p)+'s':''}
+                </span>
+                <span style={{fontSize:10,color:C.sub}}>{curSwell.src}</span>
+              </div>
+            )}
+            {!curSwell&&!marineLoad&&!sgLoad&&(
+              <div style={{fontSize:11,color:C.sub}}>Houle : pas de données</div>
+            )}
+            {(marineLoad||sgLoad)&&<div style={{fontSize:11,color:C.sub}}>Chargement houle...</div>}
+          </div>
+        )}
+      </div>
+
+      {/* Stormglass setup / status */}
+      {!sgKey&&!showSgSetup&&(
+        <button onClick={()=>setShowSgSetup(true)} style={{
+          display:'flex',alignItems:'center',gap:10,padding:'12px 16px',
+          background:C.purpleBg,border:`1.5px dashed ${C.purple}`,borderRadius:14,
+          cursor:'pointer',textAlign:'left',width:'100%',
+        }}>
+          <div style={{flexShrink:0}}>{Ico.waveChip(C.purple,18)}</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.purple}}>Activer Stormglass (surf précis)</div>
+            <div style={{fontSize:11,color:C.sub,marginTop:2}}>Clé gratuite · 10 appels/jour · multi-modèles NOAA + ECMWF</div>
+          </div>
+          <span style={{marginLeft:'auto',fontSize:11,color:C.purple,fontWeight:700}}>Configurer →</span>
+        </button>
+      )}
+      {showSgSetup&&(
+        <div className="card" style={{padding:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:C.navy,marginBottom:4}}>Stormglass — données surf multi-modèles</div>
+          <div style={{fontSize:12,color:C.sub,marginBottom:10,lineHeight:1.6}}>
+            Inscris-toi sur <a href="https://stormglass.io" target="_blank" rel="noreferrer" style={{color:C.purple}}>stormglass.io</a> → copie ta clé API gratuite ici.
+          </div>
+          {sgError&&<div style={{fontSize:12,color:C.alert,background:C.alertBg,padding:'8px 12px',borderRadius:8,marginBottom:8}}>{sgError}</div>}
+          <div style={{display:'flex',gap:8}}>
+            <input
+              value={sgInput} onChange={e=>setSgInput(e.target.value)}
+              placeholder="Colle ta clé Stormglass ici..."
+              style={{flex:1,padding:'11px 14px',borderRadius:12,border:`1.5px solid ${C.border}`,background:C.bg,fontSize:13,color:C.text}}
+            />
+            <button
+              onClick={()=>fetchStormglass(sgInput)}
+              disabled={sgLoad||!sgInput.trim()}
+              style={{padding:'11px 16px',background:sgLoad?C.border:C.purple,color:C.white,border:'none',borderRadius:12,fontWeight:700,fontSize:13,cursor:sgLoad?'default':'pointer'}}
+            >{sgLoad?'..':'Activer'}</button>
+          </div>
+          <button onClick={()=>setShowSgSetup(false)} style={{marginTop:8,background:'none',border:'none',color:C.sub,fontSize:12,cursor:'pointer'}}>Annuler</button>
+        </div>
+      )}
+      {sgKey&&(
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:C.purpleBg,borderRadius:12}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:C.purple,display:'inline-block'}}/>
+          <span style={{fontSize:12,color:C.purple,fontWeight:600}}>Stormglass actif</span>
+          {sgCacheAge!=null&&<span style={{fontSize:11,color:C.sub}}>· données il y a {sgCacheAge<60?sgCacheAge+'min':Math.round(sgCacheAge/60)+'h'}</span>}
+          {sgCacheAge!=null&&sgCacheAge>160&&(
+            <button onClick={()=>fetchStormglass(sgKey)} style={{marginLeft:'auto',background:'none',border:`1px solid ${C.purple}`,borderRadius:10,color:C.purple,padding:'3px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+              {sgLoad?'...':'Rafraîchir'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Day toggle */}
+      <div style={{display:'flex',gap:8}}>
+        {[{id:'today',label:"Aujourd'hui"},{id:'tomorrow',label:'Demain'}].map(d=>(
+          <button key={d.id} onClick={()=>setDay(d.id)} style={{
+            flex:1,padding:'10px 0',borderRadius:22,
+            border:`1.5px solid ${day===d.id?C.ocean:C.border}`,
+            background:day===d.id?C.ocean:C.white,
+            color:day===d.id?C.white:C.sub,
+            fontWeight:700,fontSize:14,cursor:'pointer',transition:'all .15s',
+          }}>{d.label}</button>
+        ))}
+      </div>
+
+      {/* Slot cards */}
+      {SLOTS.map(s=>{
+        const isNow=day==='today'&&nowH>=s.h0&&nowH<s.h1;
+        return(
+          <SlotCard key={s.id}
+            label={s.label} h0={s.h0} h1={s.h1}
+            wind={wind} marine={marine} sgHours={sgHours} tidePoints2d={tidePoints2d}
+            dateStr={dateStr} isNow={isNow}
+          />
+        );
+      })}
+
+      {/* Spots legend */}
+      <div className="card" style={{padding:'14px 16px'}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.sub,textTransform:'uppercase',letterSpacing:'.6px',marginBottom:10}}>Spots Île de Ré</div>
+        {[
+          {sport:'Wing foil',name:'Rivedoux — plan d\'eau',desc:'~2 km · wing foil · 10–20 kn',color:C.ocean},
+          {sport:'Kite',name:'Diamond Head',desc:'~3 km · kite / wing · 15–35 kn',color:C.sky},
+          {sport:'Surf',name:'Les Grenettes',desc:'~10 km · Le Bois-Plage · exposition WSW',color:C.green},
+          {sport:'Paddle',name:'Loix / Anse des Baleines',desc:'~15 km · paddle · eaux calmes protégées',color:C.sun},
+          {sport:'Surf',name:'Petit Bec',desc:'~28 km · Portes-en-Ré · grosses houles',color:C.green},
+        ].map((sp,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<4?`1px solid ${C.border}`:'none'}}>
+            <div style={{flexShrink:0,opacity:.8}}><SportIcon sport={sp.sport} color={sp.color} size={18}/></div>
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{sp.name}</span>
+              <span style={{fontSize:11,color:C.sub,marginLeft:6}}>{sp.desc}</span>
+            </div>
+            <SportBadge sport={sp.sport} color={sp.color}/>
+          </div>
+        ))}
+      </div>
+
+      <div style={{textAlign:'center',padding:'4px 0 2px',fontSize:11,color:C.border}}>
+        Open-Meteo Wind + Marine · api-maree.fr IFREMER
+      </div>
+    </div>
+  );
+}
+
+const SURF_LINKS=[
+  {color:C.ocean, name:"Grenettes — Surf Forecast",sub:"Houle · Période · Vent · 16j", url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Les-Grenettes/forecasts/latest/six_day"},
+  {color:C.green, name:"Petit Bec — Surf Forecast",sub:"Portes-en-Ré · Haut niveau",   url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Petit-Bec/forecasts/latest/six_day"},
+  {color:C.sun,   name:"Windguru Diamond Head",    sub:"Kite · Wing · multi-modèles",   url:"https://www.windguru.cz/1589"},
+];
+
 /* ── APP ── */
-function App() {
-  const [tab,setTab]=useState("ventlive");
-  const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem("apimaree_key")||"d9c83d8ea93df6cc3cbb80be0745e581";}catch{return "d9c83d8ea93df6cc3cbb80be0745e581";}});
-  const [tidePoints,setTidePoints]=useState(null);
+function App(){
+  const [tab,setTab]=useState("sport");
+
+  // Wind
+  const [wind,setWind]=useState(null);
+  const [windSpot,setWindSpot]=useState(0);
+  const [windLoad,setWindLoad]=useState(false);
+
+  // Marine (swell)
+  const [marine,setMarine]=useState(null);
+  const [marineLoad,setMarineLoad]=useState(false);
+
+  // Tides (48h)
+  const [tidePoints,setTidePoints]=useState(null);      // today only (for chart)
+  const [tidePoints2d,setTidePoints2d]=useState(null);  // 48h (for sport engine)
   const [extrema,setExtrema]=useState([]);
   const [coef,setCoef]=useState(null);
   const [nowH,setNowH]=useState(null);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
-  const [wind,setWind]=useState(null);
-  const [windSpot,setWindSpot]=useState(0);
-  const [windLoad,setWindLoad]=useState(false);
+  const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem("apimaree_key")||"d9c83d8ea93df6cc3cbb80be0745e581";}catch{return "d9c83d8ea93df6cc3cbb80be0745e581";}});
 
   const WIND_SPOTS=[{name:"Île de Ré",lat:46.18,lon:-1.43},{name:"La Rochelle",lat:46.16,lon:-1.15}];
-  const DIR16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  const degToDir=d=>DIR16[Math.round(d/22.5)%16];
-  const toKn=ms=>Math.round(ms*1.94384);
-  const toBft=kn=>kn<1?0:kn<4?1:kn<7?2:kn<11?3:kn<17?4:kn<22?5:kn<28?6:kn<34?7:kn<41?8:kn<48?9:kn<56?10:kn<64?11:12;
 
+  // ── Fetch wind (3-day hourly)
   const fetchWind=useCallback(async(idx)=>{
     setWindLoad(true);setWind(null);
     const s=WIND_SPOTS[idx];
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,relative_humidity_2m,pressure_msl&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Europe%2FParis&forecast_days=2&wind_speed_unit=ms`;
-    try{const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();if(!d.current)throw new Error("Données indisponibles.");setWind(d);}
-    catch(e){setWind({error:e.message});}
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,relative_humidity_2m,pressure_msl&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Europe%2FParis&forecast_days=3&wind_speed_unit=ms`;
+    try{
+      const r=await fetch(url);
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d.current)throw new Error("Données indisponibles.");
+      setWind(d);
+    }catch(e){setWind({error:e.message});}
     finally{setWindLoad(false);}
   },[]);
 
-  useEffect(()=>{if(tab==="ventlive")fetchWind(windSpot);},[tab,windSpot]);
+  // ── Fetch marine (swell)
+  const fetchMarine=useCallback(async()=>{
+    setMarineLoad(true);
+    const url=`https://marine-api.open-meteo.com/v1/marine?latitude=46.18&longitude=-1.43&hourly=wave_height,wave_period,swell_wave_height,swell_wave_period,swell_wave_direction&timezone=Europe%2FParis&forecast_days=3`;
+    try{
+      const r=await fetch(url);
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      setMarine(d);
+    }catch(e){console.warn("Marine API:",e.message);}
+    finally{setMarineLoad(false);}
+  },[]);
 
-  const computeExtrema=pts=>{const ex=[];for(let i=1;i<pts.length-1;i++){const p=pts[i],pv=pts[i-1],nx=pts[i+1];if(p.height>pv.height&&p.height>nx.height)ex.push({...p,type:"PM"});if(p.height<pv.height&&p.height<nx.height)ex.push({...p,type:"BM"});}return ex;};
+  // ── Compute extrema
+  const computeExtrema=pts=>{
+    const ex=[];
+    for(let i=1;i<pts.length-1;i++){
+      const p=pts[i],pv=pts[i-1],nx=pts[i+1];
+      if(p.height>pv.height&&p.height>nx.height)ex.push({...p,type:"PM"});
+      if(p.height<pv.height&&p.height<nx.height)ex.push({...p,type:"BM"});
+    }
+    return ex;
+  };
 
+  // ── Fetch tides 48h
   const loadTides=useCallback(async(k)=>{
     const key=(k??apiKey).trim();
     if(!key){setError("Clé API requise.");return;}
-    setLoading(true);setError("");setTidePoints(null);setExtrema([]);setCoef(null);setNowH(null);
-    const now=new Date(),p2=n=>String(n).padStart(2,"0");
-    const d=`${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
+    setLoading(true);setError("");
+    setTidePoints(null);setTidePoints2d(null);setExtrema([]);setCoef(null);setNowH(null);
+    const p2=n=>String(n).padStart(2,"0");
+    const now=new Date();
+    const tom=new Date(now);tom.setDate(tom.getDate()+1);
+    const d1=`${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
+    const d2=`${tom.getFullYear()}-${p2(tom.getMonth()+1)}-${p2(tom.getDate())}`;
     try{
-      const r=await fetch(`https://api-maree.fr/water-levels?site=ile-de-re-saint-martin&from=${d}T00:00&to=${d}T23:59&step=10&tz=Europe/Paris&key=${encodeURIComponent(key)}`);
+      const r=await fetch(`https://api-maree.fr/water-levels?site=ile-de-re-saint-martin&from=${d1}T00:00&to=${d2}T23:59&step=15&tz=Europe/Paris&key=${encodeURIComponent(key)}`);
       if(!r.ok)throw new Error(r.status===401||r.status===403?"Clé invalide.":`Erreur ${r.status}`);
       const data=await r.json();
       if(!data.data?.length)throw new Error("Aucune donnée.");
       try{localStorage.setItem("apimaree_key",key);}catch{}
-      const pts=data.data,ex=computeExtrema(pts);
-      setTidePoints(pts);setExtrema(ex);
-      const pm=ex.find(e=>e.type==="PM"),bm=ex.find(e=>e.type==="BM");
+      const allPts=data.data;
+      setTidePoints2d(allPts);
+
+      // Today's points for the chart
+      const todayPts=allPts.filter(p=>mareeLocalDate(p.time)===d1);
+      setTidePoints(todayPts);
+
+      const ex=computeExtrema(allPts);
+      const todayEx=computeExtrema(todayPts);
+      setExtrema(todayEx);
+
+      const pm=todayEx.find(e=>e.type==="PM"),bm=todayEx.find(e=>e.type==="BM");
       if(pm&&bm)setCoef(Math.max(20,Math.min(120,Math.round(20+(pm.height-bm.height-0.6)/5*100))));
-      const tF=new Date(pts[0].time).getTime(),tL=new Date(pts[pts.length-1].time).getTime(),nMs=Date.now();
-      if(nMs>=tF&&nMs<=tL)setNowH(pts[Math.round((nMs-tF)/(tL-tF)*(pts.length-1))]?.height);
+
+      const tF=new Date(todayPts[0].time).getTime(),tL=new Date(todayPts[todayPts.length-1].time).getTime(),nMs=Date.now();
+      if(nMs>=tF&&nMs<=tL)setNowH(todayPts[Math.round((nMs-tF)/(tL-tF)*(todayPts.length-1))]?.height);
     }catch(e){setError(e.message);}
     finally{setLoading(false);}
   },[apiKey]);
 
+  // ── Auto-fetch on mount
+  useEffect(()=>{
+    fetchWind(0);
+    fetchMarine();
+  },[]);
   useEffect(()=>{if(apiKey)loadTides(apiKey);},[]);
+  useEffect(()=>{if(tab==="ventlive")fetchWind(windSpot);},[tab,windSpot]);
 
   const fmtH=iso=>new Date(iso).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
   const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  const timeStr=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
 
-  const TABS=[
-    {id:"ventlive", label:"Vent",      bg:C.ocean, ic:(a)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>},
-    {id:"marees",   label:"Marées",    bg:C.sky,   ic:(a)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>},
-    {id:"trafic",   label:"Trafic",    bg:C.alert, ic:(a)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>},
-    {id:"vent",     label:"Prévisions",bg:C.green, ic:(a)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/></svg>},
-  ];
-
-  /* ── VENT vars ── */
   const wc=wind?.current;
   const kn=wc?toKn(wc.wind_speed_10m):null;
   const gustKn=wc?toKn(wc.wind_gusts_10m):null;
-  const bft=kn!=null?toBft(kn):null;
   const dir=wc?.wind_direction_10m;
-  const cond=kn==null?null:kn>=12&&kn<=25?{label:"Idéal kite / planche",bg:C.skyBg,color:C.ocean}:kn>=6?{label:"Bon pour le surf",bg:C.greenBg,color:C.green}:kn<6?{label:"Vent calme",bg:"#f5f5f5",color:C.sub}:{label:"Vent fort — prudence",bg:C.alertBg,color:C.alert};
+  const cond=kn==null?null:kn>=18?{label:"Idéal kite",bg:C.skyBg,color:C.sky}:kn>=11?{label:"Bon pour le wing",bg:C.skyBg,color:C.ocean}:kn>=5?{label:"Bon pour le surf / paddle",bg:C.greenBg,color:C.green}:{label:"Vent nul — paddle",bg:C.sunBg,color:C.sun};
+
   const now2=new Date();
-  const nextH=wind?.hourly?wind.hourly.time.reduce((acc,t,i)=>{if(acc.length>=8)return acc;if(new Date(t)>now2)acc.push({t:new Date(t),spKn:toKn(wind.hourly.wind_speed_10m[i]),gKn:toKn(wind.hourly.wind_gusts_10m[i]),dir:wind.hourly.wind_direction_10m[i]});return acc;},[]):[];
+  const nextH=wind?.hourly?wind.hourly.time.reduce((acc,t,i)=>{
+    if(acc.length>=8)return acc;
+    if(new Date(t)>now2)acc.push({t:new Date(t),spKn:toKn(wind.hourly.wind_speed_10m[i]),gKn:toKn(wind.hourly.wind_gusts_10m[i]),dir:wind.hourly.wind_direction_10m[i]});
+    return acc;
+  },[]):[];
   const maxSpKn=nextH.length?Math.max(...nextH.map(h=>h.spKn)):1;
 
-  const timeStr=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
+  const TABS=[
+    {id:"sport",    label:"Quoi faire", bg:C.purple, ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>},
+    {id:"ventlive", label:"Vent",       bg:C.ocean,  ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>},
+    {id:"marees",   label:"Marées",     bg:C.sky,    ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>},
+    {id:"trafic",   label:"Trafic",     bg:C.alert,  ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>},
+    {id:"vent",     label:"Prévisions", bg:C.green,  ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/></svg>},
+  ];
 
   return(
     <div style={{background:C.bg,minHeight:"100vh",paddingBottom:"max(40px, calc(env(safe-area-inset-bottom) + 20px))"}}>
 
-      {/* ── HEADER ── */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"max(16px, calc(env(safe-area-inset-top) + 10px)) max(18px, calc(env(safe-area-inset-right) + 10px)) 12px max(18px, calc(env(safe-area-inset-left) + 10px))",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:10}}>
-        <div style={{width:40,height:40,borderRadius:12,background:C.navy,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/>
-          </svg>
+      {/* HEADER */}
+      <div style={{position:"sticky",top:0,zIndex:10}}>
+        <div style={{background:C.white,padding:"max(16px, calc(env(safe-area-inset-top) + 10px)) max(18px, calc(env(safe-area-inset-right) + 10px)) 12px max(18px, calc(env(safe-area-inset-left) + 10px))",display:"flex",alignItems:"center",gap:12}}>
+          {/* App icon with gradient */}
+          <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg, ${C.navy} 0%, ${C.ocean} 100%)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:`0 2px 8px ${C.ocean}44`}}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 20c6-6 8-14 18-16"/><path d="M2 20c4 0 8-2 12-6"/><circle cx="17" cy="8" r="2"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:C.navy,letterSpacing:"-.5px"}}>Île de Ré <span style={{color:C.ocean,fontWeight:800}}>Live</span></div>
+            <div style={{fontSize:11,color:C.sub,marginTop:1,letterSpacing:".2px"}}>Surf · Wing · Kite · Marées</div>
+          </div>
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,background:C.greenBg,borderRadius:20,padding:"4px 10px"}}>
+            <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"blink 1.4s ease-in-out infinite"}}/>
+            <span style={{fontSize:10,fontWeight:800,color:C.green,letterSpacing:".6px"}}>LIVE</span>
+          </div>
         </div>
-        <div>
-          <div style={{fontSize:17,fontWeight:700,color:C.navy,letterSpacing:"-.3px"}}>Île de Ré <span style={{color:C.ocean}}>Live</span></div>
-          <div style={{fontSize:11,color:C.sub,marginTop:1}}>Surf · Kite · Marées · Trafic</div>
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,background:C.greenBg,borderRadius:20,padding:"4px 10px"}}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"blink 1.4s ease-in-out infinite"}}/>
-          <span style={{fontSize:10,fontWeight:700,color:C.green,letterSpacing:".5px"}}>LIVE</span>
-        </div>
+        {/* Wave border decoration */}
+        <svg viewBox="0 0 375 12" preserveAspectRatio="none" style={{display:"block",width:"100%",height:12,marginTop:-1}}>
+          <defs>
+            <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={C.navy} stopOpacity=".15"/>
+              <stop offset="40%" stopColor={C.ocean} stopOpacity=".4"/>
+              <stop offset="70%" stopColor={C.sky} stopOpacity=".3"/>
+              <stop offset="100%" stopColor={C.navy} stopOpacity=".1"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 6 C50 0 100 12 150 6 C200 0 250 12 300 6 C330 2 355 8 375 5 L375 12 L0 12Z" fill="url(#waveGrad)"/>
+        </svg>
       </div>
 
-      {/* ── TABS ── */}
+      {/* TABS */}
       <div style={{display:"flex",gap:8,padding:"10px max(16px, calc(env(safe-area-inset-right) + 10px)) 10px max(16px, calc(env(safe-area-inset-left) + 10px))",overflowX:"auto",scrollbarWidth:"none",background:C.white,borderBottom:`1px solid ${C.border}`}}>
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
@@ -265,11 +1120,17 @@ function App() {
 
       <div style={{padding:"16px max(16px, calc(env(safe-area-inset-right) + 10px)) 0 max(16px, calc(env(safe-area-inset-left) + 10px))"}} className="fade">
 
+        {/* ══ QUOI FAIRE ══ */}
+        {tab==="sport"&&(
+          <QuoiFaire
+            wind={wind} marine={marine} tidePoints2d={tidePoints2d}
+            windLoad={windLoad} marineLoad={marineLoad}
+          />
+        )}
+
         {/* ══ VENT LIVE ══ */}
         {tab==="ventlive"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-
-            {/* Sélecteur spot */}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {["Île de Ré","La Rochelle"].map((s,i)=>(
                 <button key={i} onClick={()=>{setWindSpot(i);setWind(null);}} style={{
@@ -279,23 +1140,18 @@ function App() {
                 }}>{s}</button>
               ))}
               <button onClick={()=>fetchWind(windSpot)} style={{marginLeft:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:20,color:C.ocean,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:600}}>
-                {Icon.refresh(C.ocean,13)} Actualiser
+                {Ico.refresh(C.ocean,13)} Actualiser
               </button>
             </div>
-
             {windLoad&&<div className="card" style={{padding:32,textAlign:"center",color:C.sub,fontSize:14}}>Chargement...</div>}
-            {wind?.error&&<div className="card" style={{padding:16,color:C.alert,fontSize:13,display:"flex",alignItems:"center",gap:8,borderLeft:`3px solid ${C.alert}`}}><strong>Erreur :</strong> {wind.error}</div>}
-
+            {wind?.error&&<div className="card" style={{padding:16,color:C.alert,fontSize:13,borderLeft:`3px solid ${C.alert}`}}><strong>Erreur :</strong> {wind.error}</div>}
             {wc&&!windLoad&&(
               <>
-                {/* Badge condition */}
                 {cond&&<div style={{background:cond.bg,borderRadius:14,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:cond.color,flexShrink:0}}/>
                   <span style={{fontWeight:600,fontSize:14,color:cond.color}}>{cond.label}</span>
-                  <span style={{marginLeft:"auto",fontWeight:700,fontSize:22,color:cond.color}}>Bft {bft}</span>
+                  <span style={{marginLeft:"auto",fontWeight:700,fontSize:22,color:cond.color}}>Bft {toBft(kn)}</span>
                 </div>}
-
-                {/* Métriques */}
                 <div className="metric-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                   {[
                     {label:"Vent moyen",val:`${kn}`,unit:"kn",sub:`${Math.round(wc.wind_speed_10m*3.6)} km/h`,color:C.ocean},
@@ -314,11 +1170,9 @@ function App() {
                     </div>
                   ))}
                 </div>
-
-                {/* Prévisions 8h */}
                 <div className="card">
                   <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
-                    {Icon.wind(C.ocean,16)}
+                    {Ico.wind(C.ocean,16)}
                     <span style={{fontWeight:700,fontSize:13,color:C.navy}}>Prévisions — 8 prochaines heures</span>
                   </div>
                   <div style={{padding:"4px 16px 12px"}}>
@@ -398,12 +1252,12 @@ function App() {
               </div>
             )}
             <a href="https://maree.info/126" target="_blank" rel="noreferrer" className="card" style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",textDecoration:"none"}}>
-              {Icon.wave(C.sky,20)}
+              {Ico.wave(C.sky,20)}
               <div>
                 <div style={{fontWeight:600,fontSize:13,color:C.navy}}>Marégramme — maree.info</div>
                 <div style={{fontSize:11,color:C.sub,marginTop:2}}>Graphique interactif · coefficients · surcotes</div>
               </div>
-              {Icon.chevron(C.sub)}
+              {Ico.chevron(C.sub)}
             </a>
           </div>
         )}
@@ -414,18 +1268,14 @@ function App() {
             <div className="card">
               <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {Icon.car(C.alert,18)}
+                  {Ico.car(C.alert,18)}
                   <span style={{fontWeight:700,fontSize:14,color:C.navy}}>Respi Ré — Trafic live</span>
                 </div>
                 <a href="https://re-info-trafic.fr/" target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Plein écran</a>
               </div>
-              <div style={{width:"100%",height:"min(75vw,60vh)"}}>
-                <iframe src="https://re-info-trafic.fr/" style={{width:"100%",height:"100%",border:"none",display:"block"}} title="Respi Ré"/>
+              <div style={{width:"100%",aspectRatio:"1/1",overflow:"hidden"}}>
+                <iframe src="https://re-info-trafic.fr/" scrolling="no" style={{width:"100%",height:"900px",border:"none",display:"block"}} title="Respi Ré"/>
               </div>
-            </div>
-            <div className="card" style={{padding:14,borderLeft:`3px solid ${C.sun}`}}>
-              <div style={{fontWeight:600,fontSize:12,color:C.navy,marginBottom:4}}>Conseils été</div>
-              <div style={{fontSize:12,color:C.sub,lineHeight:1.6}}>Partir avant 10h ou après 19h · Navette Belvédère → Sablanceaux · Vélo gratuit sur le pont</div>
             </div>
           </div>
         )}
@@ -436,7 +1286,7 @@ function App() {
             <div className="card">
               <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {Icon.compass(C.sun,18)}
+                  {Ico.compass(C.sun,18)}
                   <span style={{fontWeight:700,fontSize:14,color:C.navy}}>Carte vent — ECMWF</span>
                 </div>
                 <a href="https://www.windy.com/?46.25,-1.45,11" target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Plein écran</a>
@@ -446,8 +1296,21 @@ function App() {
                   style={{width:"100%",height:"100%",border:"none",display:"block"}} allowFullScreen title="Windy"/>
               </div>
             </div>
+            {/* Prévisions 3 jours — intégrées */}
+            <div className="card" style={{overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {Ico.waveChip(C.ocean,16)}
+                  <span style={{fontWeight:700,fontSize:14,color:C.navy}}>Prévisions vent &amp; houle — 3 jours</span>
+                </div>
+                <span style={{fontSize:10,color:C.sub}}>Open-Meteo · Stormglass</span>
+              </div>
+              <ForecastGrid wind={wind} marine={marine} sgHours={null}/>
+            </div>
+
+            {/* Surf Forecast links (accès libre) */}
             <div className="card" style={{padding:16}}>
-              <div style={{fontWeight:700,fontSize:13,color:C.navy,marginBottom:10}}>Sites de prévision</div>
+              <div style={{fontWeight:700,fontSize:13,color:C.navy,marginBottom:10}}>Prévisions surf</div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {SURF_LINKS.map((l,i)=>(
                   <a key={i} href={l.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,background:C.bg,textDecoration:"none",border:`1px solid ${C.border}`}}>
@@ -456,7 +1319,7 @@ function App() {
                       <div style={{fontWeight:600,fontSize:13,color:C.navy}}>{l.name}</div>
                       <div style={{fontSize:11,color:C.sub,marginTop:2}}>{l.sub}</div>
                     </div>
-                    {Icon.chevron(C.border)}
+                    {Ico.chevron(C.border)}
                   </a>
                 ))}
               </div>
@@ -467,7 +1330,7 @@ function App() {
       </div>
 
       <div style={{textAlign:"center",padding:"20px max(16px, calc(env(safe-area-inset-right) + 10px)) 0 max(16px, calc(env(safe-area-inset-left) + 10px))",fontSize:11,color:C.border}}>
-        Open-Meteo · api-maree.fr IFREMER CC-BY · Windy · Windfinder
+        Open-Meteo · Marine API · api-maree.fr IFREMER CC-BY · Windy
       </div>
     </div>
   );
