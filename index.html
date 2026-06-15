@@ -323,6 +323,7 @@ function App() {
   const [showSelector, setShowSelector] = useState(false);
   const [tab, setTab] = useState("aujourdhui");
 
+  const [seaTemp, setSeaTemp] = useState(null);
   const [wind, setWind] = useState(null);
   const [windLoad, setWindLoad] = useState(false);
   const [apiKey] = useState(()=>{try{return localStorage.getItem("apimaree_key")||"d9c83d8ea93df6cc3cbb80be0745e581";}catch{return "d9c83d8ea93df6cc3cbb80be0745e581";}});
@@ -344,6 +345,15 @@ function App() {
       try{localStorage.setItem("surf_sports",JSON.stringify(next));}catch{}
       return next;
     });
+  },[]);
+
+  const fetchMarine = useCallback(async(s)=>{
+    try{
+      const r=await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${s.lat}&longitude=${s.lon}&current=sea_surface_temperature,wave_height,wave_period&timezone=Europe%2FParis`);
+      if(!r.ok) return;
+      const d=await r.json();
+      setSeaTemp(d.current?.sea_surface_temperature??null);
+    }catch{}
   },[]);
 
   const fetchWind = useCallback(async(s)=>{
@@ -391,11 +401,11 @@ function App() {
 
   useEffect(()=>{
     try{localStorage.setItem("surf_spot",spot.id);}catch{}
-    setWind(null); setTidePoints(null); setExtrema([]); setCoef(null); setNowH(null); setTideError("");
-    fetchWind(spot); loadTides(spot);
+    setWind(null); setTidePoints(null); setExtrema([]); setCoef(null); setNowH(null); setTideError(""); setSeaTemp(null);
+    fetchWind(spot); loadTides(spot); fetchMarine(spot);
   },[spot]);
 
-  useEffect(()=>{ fetchWind(spot); loadTides(spot); },[]);
+  useEffect(()=>{ fetchWind(spot); loadTides(spot); fetchMarine(spot); },[]);
 
   const fmtH=iso=>new Date(iso).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Paris"});
   const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
@@ -530,10 +540,18 @@ function App() {
                       <div style={{fontSize:11,color:C.sub,marginTop:2}}>Bft {bft}</div>
                     </div>}
                   </div>
-                  {(window||sport.wind.opt)&&<div style={{padding:"10px 16px",borderTop:`1px solid ${C.border}`,background:C.bg,display:"flex",gap:16,flexWrap:"wrap"}}>
+                  {(window||sport.wind.opt)&&<div style={{padding:"10px 16px",borderTop:`1px solid ${C.border}`,background:C.bg,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
                     <div style={{fontSize:11,color:C.sub}}>
                       <span style={{fontWeight:600}}>Zone idéale : </span>{sport.wind.opt[0]}–{sport.wind.opt[1]} kn
                     </div>
+                    {sport.id==="swim"&&seaTemp!=null&&(()=>{
+                      const t=Math.round(seaTemp);
+                      const tc=t>=20?C.alert:t>=17?C.sun:C.sky;
+                      const tl=t>=20?"Eau chaude 🏖️":t>=17?"Eau agréable":t>=14?"Fraîche — combi courte":t>=10?"Froide — combinaison":"Très froide 🥶";
+                      return <div style={{fontSize:11,fontWeight:700,color:tc,display:"flex",alignItems:"center",gap:4}}>
+                        🌡️ {t}°C — {tl}
+                      </div>;
+                    })()}
                     {window&&<div style={{fontSize:11,color:C.green,fontWeight:600}}>
                       ✓ Fenêtre aujourd'hui : {window}
                     </div>}
@@ -606,6 +624,7 @@ function App() {
                   {label:"Température",val:`${Math.round(wc.temperature_2m)}`,unit:"°C",sub:"",color:C.sun},
                   {label:"Humidité",val:`${Math.round(wc.relative_humidity_2m)}`,unit:"%",sub:"",color:C.sky},
                   {label:"Pression",val:`${Math.round(wc.pressure_msl)}`,unit:"",sub:"hPa",color:C.sub},
+                  ...(seaTemp!=null?[{label:"Eau",val:`${Math.round(seaTemp)}`,unit:"°C",sub:Math.round(seaTemp)>=20?"Chaude 🏖️":Math.round(seaTemp)>=17?"Agréable":Math.round(seaTemp)>=14?"Fraîche":"Froide 🥶",color:Math.round(seaTemp)>=20?C.alert:Math.round(seaTemp)>=17?C.sun:C.sky}]:[]),
                 ].map((m,i)=>(
                   <div key={i} className="card" style={{padding:"14px 12px 12px"}}>
                     <div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>{m.label}</div>
