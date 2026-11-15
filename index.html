@@ -1001,51 +1001,36 @@ function WebcamPlayer({cam,refresh}){
   return(
     <div>
       {v?(
-        <video key={vSrc} src={vSrc} style={box} autoPlay muted loop playsInline controls preload="auto"
+        <video key={vSrc} src={vSrc} poster={iSrc} style={box} autoPlay muted loop playsInline controls preload="auto"
           onError={()=>setVi(x=>x+1)}/>
       ):im?(
         <img key={iSrc} src={iSrc} alt={cam.name} style={box} onError={()=>setIi(x=>x+1)}/>
       ):(
         <div style={{...box,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:13}}>Webcam indisponible</div>
       )}
-      <div style={{padding:"8px 14px",fontSize:11,color:C.sub,display:"flex",justifyContent:"space-between"}}>
-        <span>{v?`Timelapse de ${v.label}`:im?`Photo de ${im.label}`:""}</span>
-        <span>Skaping</span>
+      <div style={{padding:"8px 14px",fontSize:11,color:C.sub}}>
+        {v?`Dernière vidéo · ${v.label}`:im?`Dernière photo · ${im.label}`:""}
       </div>
-      {im&&v&&(
-        <a href={cam.page} target="_blank" rel="noreferrer" style={{display:"block",textDecoration:"none"}}>
-          <img key={iSrc} src={iSrc} alt={`${cam.name} — dernière photo`} style={{...box,aspectRatio:"auto",maxHeight:260}} onError={()=>setIi(x=>x+1)}/>
-          <div style={{padding:"6px 14px 10px",fontSize:11,color:C.sub}}>Dernière photo · {im.label} — toucher pour le panorama 360°</div>
-        </a>
-      )}
     </div>
   );
 }
 
 function Webcams(){
-  const [camId,setCamId]=useState("sud");
   const [refresh,setRefresh]=useState(0);
-  const cam=WEBCAMS.find(c=>c.id===camId);
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        {WEBCAMS.map(c=>(
-          <button key={c.id} onClick={()=>setCamId(c.id)} style={{padding:"8px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:13,
-            border:`1.5px solid ${camId===c.id?C.ocean:C.border}`,background:camId===c.id?C.ocean:C.white,color:camId===c.id?C.white:C.sub}}>
-            {c.id==="sud"?"Plage Sud":"Plage Nord"}
-          </button>
-        ))}
-        <button onClick={()=>setRefresh(r=>r+1)} title="Actualiser" style={{marginLeft:"auto",padding:8,borderRadius:20,border:`1.5px solid ${C.border}`,background:C.white,cursor:"pointer",display:"flex"}}>
-          {Ico.refresh(C.ocean,16)}
-        </button>
-      </div>
-      <div className="card" style={{overflow:"hidden"}}>
-        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700,fontSize:14,color:C.navy}}>{cam.name}</span>
-          <a href={cam.page} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Skaping 360°</a>
+      {WEBCAMS.map(cam=>(
+        <div key={cam.id} className="card" style={{overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:700,fontSize:14,color:C.navy}}>{cam.name}</span>
+            <a href={cam.page} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Skaping 360°</a>
+          </div>
+          <WebcamPlayer cam={cam} refresh={refresh}/>
         </div>
-        <WebcamPlayer cam={cam} refresh={refresh}/>
-      </div>
+      ))}
+      <button onClick={()=>setRefresh(r=>r+1)} style={{alignSelf:"center",display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:20,border:`1.5px solid ${C.border}`,background:C.white,color:C.ocean,fontWeight:600,fontSize:13,cursor:"pointer"}}>
+        {Ico.refresh(C.ocean,14)} Actualiser
+      </button>
     </div>
   );
 }
