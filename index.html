@@ -822,6 +822,9 @@ function QuoiFaire({wind,marine,tidePoints2d,windLoad,marineLoad}){
         )}
       </div>
 
+      {/* Windguru — Rivedoux */}
+      <WindguruCard/>
+
       {/* Stormglass setup / status */}
       {!sgKey&&!showSgSetup&&(
         <button onClick={()=>setShowSgSetup(true)} style={{
@@ -930,6 +933,122 @@ const SURF_LINKS=[
   {color:C.green, name:"Petit Bec — Surf Forecast",sub:"Portes-en-Ré · Haut niveau",   url:"https://www.surf-forecast.com/breaks/Ile-de-Re-Petit-Bec/forecasts/latest/six_day"},
   {color:C.sun,   name:"Windguru Diamond Head",    sub:"Kite · Wing · multi-modèles",   url:"https://www.windguru.cz/1589"},
 ];
+
+/* ── WINDGURU (widget officiel) ── */
+const WG_SPOT=562988; // Rivedoux Plage - Île de Ré
+function WindguruWidget({spot=WG_SPOT}){
+  const ref=useRef(null);
+  useEffect(()=>{
+    const el=ref.current; if(!el) return;
+    el.innerHTML="";
+    const uid=`wg_fwdg_${spot}_100_${Date.now()}`;
+    const s=document.createElement("script");
+    s.id=uid;
+    s.src=`https://www.windguru.cz/js/widget.php?s=${spot}&m=100&uid=${uid}&wj=knots&tj=c&waj=m&tij=cm&odh=0&do=24&fhours=72&hrsm=2&vt=forecasts&lng=fr&idbs=1&p=WINDSPD,GUST,SMER,TMPE,CDC,APCP1s,HTSGW,PERPW,RATING`;
+    el.appendChild(s);
+    return()=>{el.innerHTML="";};
+  },[spot]);
+  return <div ref={ref} style={{minHeight:180,overflowX:"auto"}}/>;
+}
+
+function WindguruCard(){
+  return(
+    <div className="card" style={{overflow:"hidden"}}>
+      <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {Ico.windChip(C.ocean,16)}
+          <span style={{fontWeight:700,fontSize:14,color:C.navy}}>Windguru — Rivedoux</span>
+        </div>
+        <a href={`https://www.windguru.cz/${WG_SPOT}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Ouvrir</a>
+      </div>
+      <div style={{padding:"6px 4px"}}><WindguruWidget/></div>
+    </div>
+  );
+}
+
+/* ── WEBCAMS SKAPING (timelapses vidéo) ── */
+const SKAPING_BASE="https://skaping.s3.gra.io.cloud.ovh.net";
+const WEBCAMS=[
+  {id:"sud", name:"Rivedoux — Plage Sud", path:"rivedoux/plage",          page:"https://www.skaping.com/rivedoux-plage-sud"},
+  {id:"nord",name:"Rivedoux — Plage Nord",path:"rivedoux-salle-des-fetes",page:"https://www.skaping.com/rivedoux-plage-nord"},
+];
+const parisParts=d=>{
+  const o={};
+  new Intl.DateTimeFormat("fr-FR",{timeZone:"Europe/Paris",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"})
+    .formatToParts(d).forEach(p=>o[p.type]=p.value);
+  return o;
+};
+// Créneaux horaires (heure de Paris) du plus récent au plus ancien
+const skapingSlots=(okMinute,max)=>{
+  const out=[]; let t=Math.floor(Date.now()/300000)*300000;
+  for(let i=0;i<2000&&out.length<max;i++,t-=300000){
+    const p=parisParts(new Date(t));
+    if(okMinute(+p.minute))out.push({date:`${p.year}/${p.month}/${p.day}`,hm:`${p.hour}-${p.minute}`,label:`${p.hour}h${p.minute}`});
+  }
+  return out;
+};
+
+function WebcamPlayer({cam,refresh}){
+  const vids=useMemo(()=>skapingSlots(m=>m===15||m===45,48),[cam.id,refresh]); // vidéo toutes les 30 min
+  const imgs=useMemo(()=>skapingSlots(m=>m%10===0,150),[cam.id,refresh]);      // photo toutes les 10 min
+  const [vi,setVi]=useState(0);
+  const [ii,setIi]=useState(0);
+  useEffect(()=>{setVi(0);setIi(0);},[cam.id,refresh]);
+  const v=vids[vi], im=imgs[ii];
+  const vSrc=v&&`${SKAPING_BASE}/${cam.path}/video/${v.date}/${v.hm}.mp4`;
+  const iSrc=im&&`${SKAPING_BASE}/${cam.path}/${im.date}/large/${im.hm}.jpg`;
+  const box={width:"100%",aspectRatio:"16/9",background:"#0b1d26",display:"block",objectFit:"cover"};
+  return(
+    <div>
+      {v?(
+        <video key={vSrc} src={vSrc} style={box} autoPlay muted loop playsInline controls preload="auto"
+          onError={()=>setVi(x=>x+1)}/>
+      ):im?(
+        <img key={iSrc} src={iSrc} alt={cam.name} style={box} onError={()=>setIi(x=>x+1)}/>
+      ):(
+        <div style={{...box,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:13}}>Webcam indisponible</div>
+      )}
+      <div style={{padding:"8px 14px",fontSize:11,color:C.sub,display:"flex",justifyContent:"space-between"}}>
+        <span>{v?`Timelapse de ${v.label}`:im?`Photo de ${im.label}`:""}</span>
+        <span>Skaping</span>
+      </div>
+      {im&&v&&(
+        <a href={cam.page} target="_blank" rel="noreferrer" style={{display:"block",textDecoration:"none"}}>
+          <img key={iSrc} src={iSrc} alt={`${cam.name} — dernière photo`} style={{...box,aspectRatio:"auto",maxHeight:260}} onError={()=>setIi(x=>x+1)}/>
+          <div style={{padding:"6px 14px 10px",fontSize:11,color:C.sub}}>Dernière photo · {im.label} — toucher pour le panorama 360°</div>
+        </a>
+      )}
+    </div>
+  );
+}
+
+function Webcams(){
+  const [camId,setCamId]=useState("sud");
+  const [refresh,setRefresh]=useState(0);
+  const cam=WEBCAMS.find(c=>c.id===camId);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        {WEBCAMS.map(c=>(
+          <button key={c.id} onClick={()=>setCamId(c.id)} style={{padding:"8px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:13,
+            border:`1.5px solid ${camId===c.id?C.ocean:C.border}`,background:camId===c.id?C.ocean:C.white,color:camId===c.id?C.white:C.sub}}>
+            {c.id==="sud"?"Plage Sud":"Plage Nord"}
+          </button>
+        ))}
+        <button onClick={()=>setRefresh(r=>r+1)} title="Actualiser" style={{marginLeft:"auto",padding:8,borderRadius:20,border:`1.5px solid ${C.border}`,background:C.white,cursor:"pointer",display:"flex"}}>
+          {Ico.refresh(C.ocean,16)}
+        </button>
+      </div>
+      <div className="card" style={{overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontWeight:700,fontSize:14,color:C.navy}}>{cam.name}</span>
+          <a href={cam.page} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.ocean,textDecoration:"none",fontWeight:600}}>Skaping 360°</a>
+        </div>
+        <WebcamPlayer cam={cam} refresh={refresh}/>
+      </div>
+    </div>
+  );
+}
 
 /* ── APP ── */
 function App(){
@@ -1060,6 +1179,7 @@ function App(){
 
   const TABS=[
     {id:"sport",    label:"Quoi faire", bg:C.purple, ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>},
+    {id:"webcams",  label:"Webcams",    bg:C.navy,   ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>},
     {id:"ventlive", label:"Vent",       bg:C.ocean,  ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>},
     {id:"marees",   label:"Marées",     bg:C.sky,    ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>},
     {id:"trafic",   label:"Trafic",     bg:C.alert,  ic:a=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>},
@@ -1128,6 +1248,9 @@ function App(){
             windLoad={windLoad} marineLoad={marineLoad}
           />
         )}
+
+        {/* ══ WEBCAMS ══ */}
+        {tab==="webcams"&&<Webcams/>}
 
         {/* ══ VENT LIVE ══ */}
         {tab==="ventlive"&&(

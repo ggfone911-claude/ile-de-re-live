@@ -1,4 +1,4 @@
-const CACHE = 'ile-de-re-v1';
+const CACHE = 'ile-de-re-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -32,7 +32,18 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Cache-first pour les assets locaux
+  // Network-first pour la page (toujours la dernière version publiée)
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first pour les autres assets locaux
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request).then(res => {
