@@ -978,38 +978,51 @@ const parisParts=d=>{
     .formatToParts(d).forEach(p=>o[p.type]=p.value);
   return o;
 };
-// Créneaux horaires (heure de Paris) du plus récent au plus ancien
-const skapingSlots=(okMinute,max)=>{
-  const out=[]; let t=Math.floor(Date.now()/300000)*300000;
-  for(let i=0;i<2000&&out.length<max;i++,t-=300000){
-    const p=parisParts(new Date(t));
-    if(okMinute(+p.minute))out.push({date:`${p.year}/${p.month}/${p.day}`,hm:`${p.hour}-${p.minute}`,label:`${p.hour}h${p.minute}`});
+// Minutes (heure de Paris) du plus récent au plus ancien, de `from` à `to` minutes en arrière
+const skapingMinutes=(from,to)=>{
+  const out=[]; const now=Math.floor(Date.now()/60000)*60000;
+  for(let k=from;k<to;k++){
+    const p=parisParts(new Date(now-k*60000));
+    out.push({date:`${p.year}/${p.month}/${p.day}`,hm:`${p.hour}-${p.minute}`,label:`${p.hour}h${p.minute}`});
   }
   return out;
 };
+// Cherche le fichier le plus récent qui existe : teste chaque minute en parallèle, par tranches d'1 h, sur 24 h max.
+// (Skaping décale parfois ses horaires d'une minute, d'où le test minute par minute.)
+async function skapingLatest(urlFor,maxMin=1440){
+  for(let from=0;from<maxMin;from+=60){
+    const slots=skapingMinutes(from,from+60);
+    const ok=await Promise.all(slots.map(s=>fetch(urlFor(s),{method:"HEAD",cache:"no-store"}).then(r=>r.ok).catch(()=>false)));
+    const i=ok.indexOf(true);
+    if(i>=0) return {...slots[i],url:urlFor(slots[i])};
+  }
+  return null;
+}
 
 function WebcamPlayer({cam,refresh}){
-  const vids=useMemo(()=>skapingSlots(m=>m===15||m===45,48),[cam.id,refresh]); // vidéo toutes les 30 min
-  const imgs=useMemo(()=>skapingSlots(m=>m%10===0,150),[cam.id,refresh]);      // photo toutes les 10 min
-  const [vi,setVi]=useState(0);
-  const [ii,setIi]=useState(0);
-  useEffect(()=>{setVi(0);setIi(0);},[cam.id,refresh]);
-  const v=vids[vi], im=imgs[ii];
-  const vSrc=v&&`${SKAPING_BASE}/${cam.path}/video/${v.date}/${v.hm}.mp4`;
-  const iSrc=im&&`${SKAPING_BASE}/${cam.path}/${im.date}/large/${im.hm}.jpg`;
+  const [st,setSt]=useState({loading:true,video:null,photo:null});
+  useEffect(()=>{
+    let alive=true;
+    setSt({loading:true,video:null,photo:null});
+    Promise.all([
+      skapingLatest(s=>`${SKAPING_BASE}/${cam.path}/video/${s.date}/${s.hm}.mp4`),
+      skapingLatest(s=>`${SKAPING_BASE}/${cam.path}/${s.date}/large/${s.hm}.jpg`),
+    ]).then(([video,photo])=>{ if(alive) setSt({loading:false,video,photo}); });
+    return()=>{alive=false;};
+  },[cam.id,refresh]);
+  const {loading,video,photo}=st;
   const box={width:"100%",aspectRatio:"16/9",background:"#0b1d26",display:"block",objectFit:"cover"};
+  const msg=t=><div style={{...box,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:13}}>{t}</div>;
   return(
     <div>
-      {v?(
-        <video key={vSrc} src={vSrc} poster={iSrc} style={box} autoPlay muted loop playsInline controls preload="auto"
-          onError={()=>setVi(x=>x+1)}/>
-      ):im?(
-        <img key={iSrc} src={iSrc} alt={cam.name} style={box} onError={()=>setIi(x=>x+1)}/>
-      ):(
-        <div style={{...box,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:13}}>Webcam indisponible</div>
-      )}
+      {loading?msg("Chargement…"):video?(
+        <video key={video.url} src={video.url} poster={photo&&photo.url} style={box} autoPlay muted loop playsInline controls preload="auto"
+          onError={()=>setSt(s=>({...s,video:null}))}/>
+      ):photo?(
+        <img key={photo.url} src={photo.url} alt={cam.name} style={box}/>
+      ):msg("Webcam indisponible")}
       <div style={{padding:"8px 14px",fontSize:11,color:C.sub}}>
-        {v?`Dernière vidéo · ${v.label}`:im?`Dernière photo · ${im.label}`:""}
+        {loading?"":video?`Dernière vidéo · ${video.label}`:photo?`Dernière photo · ${photo.label}`:""}
       </div>
     </div>
   );
